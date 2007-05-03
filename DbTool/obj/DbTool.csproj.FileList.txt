@@ -1,5 +1,0 @@
-bin\Debug\DbTool.exe
-bin\Debug\DbTool.pdb
-obj\Debug\ResolveAssemblyReference.cache
-obj\Debug\DbTool.exe
-obj\Debug\DbTool.pdb
