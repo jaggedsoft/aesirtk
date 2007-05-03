@@ -1,0 +1,5 @@
+bin\Debug\Aesir.Nexus.dll
+bin\Debug\Aesir.Nexus.pdb
+obj\Debug\ResolveAssemblyReference.cache
+obj\Debug\Aesir.Nexus.dll
+obj\Debug\Aesir.Nexus.pdb

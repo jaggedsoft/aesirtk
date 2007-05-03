@@ -1,0 +1,15 @@
+bin\Release\Aesir.exe.config
+obj\Release\ResolveAssemblyReference.cache
+bin\Release\Aesir.exe
+bin\Release\Aesir.pdb
+obj\Release\Aesir.exe
+obj\Release\Aesir.pdb
+bin\Debug\Aesir.exe
+bin\Debug\Aesir.pdb
+obj\Debug\ResolveAssemblyReference.cache
+obj\Debug\Aesir.exe
+obj\Debug\Aesir.pdb
+obj\Debug\Aesir.Resources.resources
+obj\Debug\Aesir.csproj.GenerateResource.Cache
+bin\Debug\Aesir.Nexus.dll
+bin\Debug\Aesir.Nexus.pdb
