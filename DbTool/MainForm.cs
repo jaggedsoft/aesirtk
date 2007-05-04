@@ -64,7 +64,11 @@ namespace DbTool {
 					exception.Message, "Error");
 			}
 			UpdateListBox();
-			listBox.SelectedIndex = 0;
+			if(file.Entries.Count > 0) {
+				listBox.SelectedIndex = 0;
+				propertyGrid.SelectedObject = file.Entries[0];
+			}
+			listBox.Refresh();
 		}
 		private void open_Click(object sender, EventArgs args) {
 			OpenFileDialog dialog = new OpenFileDialog();
@@ -102,6 +106,8 @@ namespace DbTool {
 			fileTypes["item_db.txt"] = delegate() { return new DbFile<ItemDbEntry>(); };
 			fileTypes["board_db.txt"] = delegate() { return new DbFile<BoardDbEntry>(); };
 			fileTypes["mob_db.txt"] = delegate() { return new DbFile<MobDbEntry>(); };
+			fileTypes["spawn_db.txt"] = delegate() { return new DbFile<SpawnDbEntry>(); };
+			fileTypes["mob_db2.txt"] = delegate() { return new DbFile<Mob2DbEntry>(); };
 			StringBuilder builder = new StringBuilder();
 			foreach(string key in fileTypes.Keys)
 				builder.Append(key + "|" + key + "|");

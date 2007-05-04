@@ -28,7 +28,9 @@ namespace DbTool {
 			set { shortName = value; }
 		}
 		public enum TypeEnum {
-			Eat = 0, Use, Smoke, Helm, Weapon, Armor, Shield, Hand, Etc, UseSpecial }
+			Eat = 0, Use, Smoke, Weapon, Armor, Shield, Helm, Left, Right, Script1, Script2,
+			FaceAcc, Crown, Mantle, Necklace, Boots, Coat, Hand, Etc, UsePc
+		}
 		private TypeEnum type = TypeEnum.Use;
 		[PropertyOrder(3)]
 		[Category("General")]
