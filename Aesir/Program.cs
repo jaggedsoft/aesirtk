@@ -12,12 +12,12 @@ namespace Aesir {
 	class Program {
 		[STAThread()]
 		static void Main(string[] args) {
-			RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Nexon\Kingdom of the Winds");
+			/*RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Nexon\Kingdom of the Winds");
 			string value;
 			using(key) {
 				value = (string)key.GetValue("Location");
 			}
-			Console.WriteLine(value);
+			Console.WriteLine(value);*/
 			Application.Run(MainForm.Default);
 		}
 	}
