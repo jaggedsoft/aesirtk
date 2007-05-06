@@ -20,14 +20,20 @@ namespace Aesir.Nexus {
 			this.datReader = datReader;
 			stream = new StreamWrapper(this);
 		}
-		private Stream stream;
-		public Stream Stream { get { return stream; } }
+		/// <summary>
+		/// Gets a stream wrapper that can be used to read data associated with this entry.
+		/// </summary>
+		/// <param name="stream"></param>
+		/// <returns></returns>
+		public Stream GetStreamWrapper(Stream stream) {
+			return new StreamWrapper(stream);
+		}
 		private class StreamWrapper : Stream {
 			private DatEntry datEntry;
 			private Stream stream;
-			public StreamWrapper(DatEntry datEntry) {
+			public StreamWrapper(DatEntry datEntry, Stream stream) {
 				this.datEntry = datEntry;
-				this.stream = datEntry.datReader.FileStream;
+				this.stream = stream;
 			}
 			public override bool CanRead { get { return stream.CanRead; } }
 			public override bool CanSeek { get { return stream.CanSeek; } }

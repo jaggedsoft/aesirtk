@@ -5,7 +5,19 @@ using System.Collections;
 using System.IO;
 
 namespace Aesir.Nexus {
+	public class DatEntryNotFoundException : Exception {
+		public DatEntryNotFoundException() : base("The DAT entry could not be found.") { }
+	}
+	public class DatHeader {
+		public void Load(string path) {
+		}
+	}
+	/// <summary>
+	/// This class allows you to read data from Nexus's DAT files, which are simple uncompressed
+	/// archives.
+	/// </summary>
 	public class DatReader : IDisposable {
+		/// <summary>Construct a <c>DatReader</c> that will manipulate the archive at <c>path</c>.</summary>
 		public DatReader(string path) {
 			fileStream = new FileStream(path, FileMode.Open);
 			ReadHeader();
@@ -37,16 +49,17 @@ namespace Aesir.Nexus {
 		/// <see cref="Aesir.Nexus.DatEntry" />
 		public IList<DatEntry> Entries { get { return entries; } }
 		private List<DatEntry> entries = new List<DatEntry>();
-		/// <summary>Find an entry given an entry file name.</summary>
+		/// <summary>Find an entry given an entry's file name.</summary>
 		/// <param name="name">The case-insensitive name of an entry.</param>
 		/// <returns>A reference to the specified entry, or <c>null</c>.</returns>
+		/// <exception cref="Aesir.Nexus.DatEntryNotFoundException" />
 		public DatEntry FindEntry(string name) {
 			name = name.ToLower();
 			foreach(DatEntry entry in entries) {
 				if(entry.Name.ToLower() == name)
 					return entry;
 			}
-			return null;
+			throw new DatEntryNotFoundException();
 		}
 		protected void Dispose(bool disposing) {
 			if(fileStream != null) {
@@ -59,7 +72,6 @@ namespace Aesir.Nexus {
 			GC.SuppressFinalize(this);
 		}
 		~DatReader() { Dispose(false); }
-		public bool CanRead { get { return fileStream.CanRead; } }
 		internal FileStream FileStream { get { return fileStream; } }
 		private FileStream fileStream = null;
 	}
