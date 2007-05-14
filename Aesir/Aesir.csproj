@@ -56,6 +56,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Settings.cs" />
     <Compile Include="Tile.cs" />
     <Compile Include="GraphicBrowserForm.cs">
       <SubType>Form</SubType>
@@ -63,6 +64,7 @@
     <Compile Include="Tool.cs" />
     <Compile Include="Util\CircularBuffer.cs" />
     <Compile Include="Util\ListViewHeader.cs" />
+    <Compile Include="Util\TaskThread.cs" />
     <Compile Include="Util\Vector.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -76,7 +78,7 @@
     <None Include="Resources\FloorTileToolIcon.ico" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="Nexus\Aesir.Nexus.csproj">
+    <ProjectReference Include="Aesir.Nexus\Aesir.Nexus.csproj">
       <Project>{37B09124-7C90-4781-A913-A3A6AEC61F1D}</Project>
       <Name>Aesir.Nexus</Name>
     </ProjectReference>

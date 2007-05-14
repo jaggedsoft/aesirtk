@@ -9,7 +9,7 @@ using Microsoft.Win32;
 
 // NOTE: My Computer\HKEY_CURRENT_USER\Software\Nexon\Kingdom of the Winds\Location
 namespace Aesir {
-	class Program {
+	static class Program {
 		[STAThread()]
 		static void Main(string[] args) {
 			/*RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Nexon\Kingdom of the Winds");

@@ -15,7 +15,7 @@
     <ProjectView>ProjectFiles</ProjectView>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <StartWorkingDirectory>C:\Code\Projects\Aesir\</StartWorkingDirectory>
+    <StartWorkingDirectory>C:\Code\Nexus\Aesir\</StartWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <StartWorkingDirectory>C:\Code\Projects\Aesir</StartWorkingDirectory>

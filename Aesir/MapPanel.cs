@@ -36,7 +36,7 @@ namespace Aesir {
 			camera.Apply(args.Graphics);
 			map.AcceptVisitor(delegate(Vector point, FloorTile floorTile, ObjectTile objectTile) {
 				if(floorTile != null)
-					floorTile.Draw(args.Graphics, (Point)(point * (Vector)Graphic.Size));
+					floorTile.Draw(args.Graphics, (Point)(point * (Vector)Tile.Size));
 			});
 			args.Graphics.Restore(savedState);
 		}

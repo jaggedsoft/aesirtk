@@ -55,35 +55,55 @@ namespace Aesir {
 			private ListView listView = new ListView();
 			private ListViewHeader listViewHeader;
 		}
+		#region Tile providers
 		private interface ITileProvider {
 			int TileCount { get; }
 			int GetTileIndex(int index);
 		}
-		private class TileProvider : ITileProvider {
+		private class SimpleTileProvider : ITileProvider {
 			private int tileCount;
 			public int TileCount { get { return tileCount; } }
 			public int GetTileIndex(int index) {
 				Debug.Assert(index < tileCount);
 				return index;
 			}
-			public TileProvider(int tileCount) {
+			public SimpleTileProvider(int tileCount) {
 				this.tileCount = tileCount;
 			}
 		}
-		private abstract class TileBrowserPanel<TTile> : Panel where TTile : Tile<TTile>, new() {
-			protected int TileWidth { get { return Width / Graphic.Width; } }
-			protected int TileHeight { get { return Height / Graphic.Height; } }
+		private class CategoryTileProvider : ITileProvider {
+			public int TileCount {
+				get { throw new Exception("The method or operation is not implemented."); }
+			}
+			public int GetTileIndex(int index) {
+				throw new Exception("The method or operation is not implemented.");
+			}
+		}
+		#endregion
+		private abstract class TileBrowserPanel<TTile> : Panel where TTile : Tile, new() {
+			protected int TileWidth { get { return Width / Tile.Width; } }
+			protected int TileHeight { get { return Height / Tile.Height; } }
 		}
 		private class FloorTileBrowserPanel : TileBrowserPanel<FloorTile> {
-			private class Buffer : CircularBuffer<FloorTile[]> {
+			private class Buffer : CircularBuffer<TileHandle<FloorTile>[]> {
 				public Buffer(FloorTileBrowserPanel panel) {
 					this.panel = panel;
 				}
 				private FloorTileBrowserPanel panel;
-				protected override FloorTile[] Create() {
-					return new FloorTile[panel.TileWidth];
+				protected override TileHandle<FloorTile>[] Factory() {
+					return new TileHandle<FloorTile>[panel.TileWidth];
+				}
+				public void Rebuild() {
+					Resize(panel.TileHeight + CacheRows * 2);
+					for(int rowIndex = 0; rowIndex < panel.TileHeight; ++rowIndex) {
+						TileHandle<FloorTile>[] row = this[rowIndex + CacheRows];
+						for(int columnIndex = 0; columnIndex < panel.TileWidth; ++columnIndex) {
+							row[columnIndex] = FloorTileManager.Default.GetTile(100);
+						}
+					}
 				}
 			}
+			private int baseIndex = 0;
 			public FloorTileBrowserPanel() {
 				buffer = new Buffer(this);
 				// Because we have to resize the buffer when the control is resized (a costly
@@ -92,9 +112,10 @@ namespace Aesir {
 				scrollBar.Dock = DockStyle.Right;
 				scrollBar.Enabled = false; // Disable the scroll bar until we have a TileProvider
 				scrollBar.Scroll += new ScrollEventHandler(scrollBar_Scroll);
-				scrollBar.LargeChange = Graphic.Height;
+				scrollBar.LargeChange = Tile.Height;
 				Controls.Add(scrollBar);
-				TileProvider = new TileProvider(10); // TEMP: A temporary tile provider
+				TileProvider = new SimpleTileProvider(500); // TEMP: A temporary tile provider
+				buffer.Rebuild();
 			}
 			void scrollBar_Scroll(object sender, ScrollEventArgs args) {
 			}
@@ -103,10 +124,18 @@ namespace Aesir {
 			}
 			protected override void OnPaint(PaintEventArgs args) {
 				base.OnPaint(args);
+				for(int rowIndex = 0; rowIndex < TileHeight; ++rowIndex) {
+					TileHandle<FloorTile>[] row = buffer[rowIndex + CacheRows];
+					for(int columnIndex = 0; columnIndex < TileWidth; ++columnIndex) {
+						TileHandle<FloorTile> floorTile = row[columnIndex];
+						Point point = new Point(columnIndex * Tile.Width, rowIndex * Tile.Height);
+						((FloorTile)floorTile).Draw(args.Graphics, point);
+					}
+				}
 			}
 			private void UpdateScrollInfo() {
 				scrollBar.Enabled = true;
-				scrollBar.Maximum = (tileProvider.TileCount / TileWidth) * Graphic.Height;
+				scrollBar.Maximum = (tileProvider.TileCount / TileWidth) * Tile.Height;
 			}
 			private void OnTileProviderChanged(EventArgs args) {
 				Debug.Assert(tileProvider != null);
@@ -124,7 +153,7 @@ namespace Aesir {
 			private const int CacheRows = 2;
 		}
 		private class ObjectTileBrowserPanel : TileBrowserPanel<ObjectTile> { }
-		private class TileBrowserTabPage<TTile> : TabPage where TTile : Tile<TTile>, new() {
+		private class TileBrowserTabPage<TTile> : TabPage where TTile : Tile, new() {
 			public TileBrowserTabPage(GraphicBrowserForm graphicBrowserForm,
 				TileBrowserPanel<TTile> tileBrowserPanel) {
 

@@ -3,34 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 9.00
 # Visual Studio 2005
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aesir", "Aesir.csproj", "{52D196D4-4E9F-42B0-9729-08D3601476E2}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Aesir_Attic", "Aesir_Attic", "{C6F90436-C07B-42D7-B892-418508C0D023}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aesir.Nexus", "Aesir.Nexus\Aesir.Nexus.csproj", "{37B09124-7C90-4781-A913-A3A6AEC61F1D}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Util", "Util", "{FA3C1BF3-B12C-467F-A9D6-1B7B4CF3B1BF}"
-	ProjectSection(SolutionItems) = preProject
-		Attic\BasicCanvas.cpp = Attic\BasicCanvas.cpp
-		Attic\BasicCanvas.h = Attic\BasicCanvas.h
-		Attic\Global.h = Attic\Global.h
-		Attic\MainFrame.cpp = Attic\MainFrame.cpp
-		Attic\MainFrame.h = Attic\MainFrame.h
-		Attic\MapDocument.cpp = Attic\MapDocument.cpp
-		Attic\MapDocument.h = Attic\MapDocument.h
-		Attic\MapEditor.cpp = Attic\MapEditor.cpp
-		Attic\MapEditor.h = Attic\MapEditor.h
-		Attic\MapView.cpp = Attic\MapView.cpp
-		Attic\MapView.h = Attic\MapView.h
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tile", "Tile", "{441892AF-8EA0-4127-810C-7A24C4AD02A5}"
-	ProjectSection(SolutionItems) = preProject
-		Attic\TileChooser.cpp = Attic\TileChooser.cpp
-		Attic\TileChooser.h = Attic\TileChooser.h
-		Attic\TileLoader.cpp = Attic\TileLoader.cpp
-		Attic\TileLoader.h = Attic\TileLoader.h
-		Attic\TileManager.cpp = Attic\TileManager.cpp
-		Attic\TileManager.h = Attic\TileManager.h
-	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aesir.Nexus", "Nexus\Aesir.Nexus.csproj", "{37B09124-7C90-4781-A913-A3A6AEC61F1D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sandbox", "Sandbox\Sandbox.csproj", "{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -62,12 +37,18 @@ Global
 		{37B09124-7C90-4781-A913-A3A6AEC61F1D}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{37B09124-7C90-4781-A913-A3A6AEC61F1D}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{37B09124-7C90-4781-A913-A3A6AEC61F1D}.Release|Win32.ActiveCfg = Release|Any CPU
+		{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{B0B47061-F1AE-4FEE-BDCB-B02F9A0BEF93}.Release|Win32.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{FA3C1BF3-B12C-467F-A9D6-1B7B4CF3B1BF} = {C6F90436-C07B-42D7-B892-418508C0D023}
-		{441892AF-8EA0-4127-810C-7A24C4AD02A5} = {C6F90436-C07B-42D7-B892-418508C0D023}
 	EndGlobalSection
 EndGlobal
