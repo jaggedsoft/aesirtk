@@ -49,6 +49,10 @@
     </Compile>
     <Compile Include="Map.cs">
     </Compile>
+    <Compile Include="Nexus\ArchiveInfo.cs" />
+    <Compile Include="Nexus\Graphic.cs" />
+    <Compile Include="Nexus\ObjectInfo.cs" />
+    <Compile Include="Nexus\Palette.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Resources.Designer.cs">
@@ -76,12 +80,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\FloorTileToolIcon.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="Aesir.Nexus\Aesir.Nexus.csproj">
-      <Project>{37B09124-7C90-4781-A913-A3A6AEC61F1D}</Project>
-      <Name>Aesir.Nexus</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

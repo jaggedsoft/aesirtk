@@ -78,34 +78,29 @@ namespace Aesir.Nexus {
 			Stream GetSourceStream(int index);
 		}
 		/// <summary>
-		/// This concrete source provider provides sources based on a path prefix, path suffix, and
-		/// source count. Source <i>n</i> is defined as the concatenation of path prefix, <i>n</i>,
-		/// and the path suffix. In the context of NexusTK, the path prefix is usually the path to
-		/// the data directory, plus either "tile" or "tilec". The path suffix would be ".dat".
+		///		This concrete source provider provides sources that are stored within an archive
+		///		and numbered sequentially. For example, tiles are stored in a series of archives
+		///		tile0.dat, tile1.dat, etc. Within these archives are the EPF files tile0.epf,
+		///		tile1.epf, etc. In this case, the <c>PathPrefix</c> would be "tile".
 		/// </summary>
-		public class SourceProvider : ISourceProvider {
-			public SourceProvider(int sourceCount, string pathPrefix, string pathSuffix) {
+		public class SimpleSourceProvider : ISourceProvider {
+			public SimpleSourceProvider(int sourceCount, string sourceTag) {
 				this.sourceCount = sourceCount;
-				this.pathPrefix = pathPrefix;
-				this.pathSuffix = pathSuffix;
+				this.sourceTag = sourceTag;
 			}
-			/// <summary>
-			/// Initialize the SourceProvider using the default path suffix ".dat".
-			/// </summary>
-			public SourceProvider(int sourceCount, string pathPrefix) :
-				this(sourceCount, pathPrefix, ".dat") { }
+			private string sourceTag;
+			public string SourceTag { get { return sourceTag; } }
+			private int sourceCount;
 			public int SourceCount { get { return sourceCount; } }
 			public Stream GetSourceStream(int index) {
 				Debug.Assert(index < sourceCount);
-				string path = pathPrefix + index.ToString() + pathSuffix;
+				string path = string.Format("{0}{1}.dat", sourceTag, index);
 				FileStream stream = new FileStream(path, FileMode.Open);
 				ArchiveInfo archive = new ArchiveInfo(stream);
 				string graphicFileName = Path.GetFileNameWithoutExtension(path) + ".epf";
 				stream.Seek(archive.GetFile(graphicFileName).Offset, SeekOrigin.Begin);
 				return stream;
 			}
-			private int sourceCount;
-			private string pathPrefix, pathSuffix;
 		}
 		public GraphicLoader(IPaletteProvider paletteProvider, PaletteTable paletteTable,
 			ISourceProvider sourceProvider) {

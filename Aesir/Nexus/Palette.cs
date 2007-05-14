@@ -5,19 +5,19 @@ using System.Drawing;
 using System.IO;
 
 namespace Aesir.Nexus {
-	public class PaletteException : Exception {
+	class PaletteException : Exception {
 		public PaletteException(string message) : base(message) { }
 	}
 	/// <summary>
 	/// A palette provider allows one to retrieve a palette by its numerical index.
 	/// </summary>
-	public interface IPaletteProvider {
+	interface IPaletteProvider {
 		Palette GetPalette(int index);
 	}
 	/// <summary>
 	/// A collection of palettes, which has been loaded from a PAL file.
 	/// </summary>
-	public class PaletteCollection : IPaletteProvider {
+	class PaletteCollection : IPaletteProvider {
 		public static PaletteCollection FromStream(Stream stream) {
 			BinaryReader binaryReader = new BinaryReader(stream);
 			// The first byte is the number of palettes in the collection
@@ -50,7 +50,7 @@ namespace Aesir.Nexus {
 	/// <summary>
 	/// A palette table maps absolute graphic indices to their associated palette.
 	/// </summary>
-	public class PaletteTable {
+	class PaletteTable {
 		public static PaletteTable FromStream(Stream stream) {
 			BinaryReader binaryReader = new BinaryReader(stream);
 			int count = binaryReader.ReadUInt16();

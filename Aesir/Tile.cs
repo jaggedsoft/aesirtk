@@ -60,14 +60,8 @@ namespace Aesir {
 		///		handler will not be invoked if the tile was never loaded in the first place.
 		/// </summary>
 		public event EventHandler Release;
-		internal void Create(Bitmap bitmap, Point point) {
-			Bitmap tileBitmap = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
-			using(Graphics graphics = Graphics.FromImage(tileBitmap)) {
-				graphics.DrawRectangle(Pens.Transparent, 0, 0, Width, Height);
-				graphics.DrawImage(bitmap, point);
-			}
-			bitmap.Dispose();
-			lock(SyncRoot) image = tileBitmap;
+		internal void Create(Image image) {
+			this.image = image;
 			if(Load != null) Load(this, EventArgs.Empty);
 		}
 		internal void OnRelease() {
@@ -93,8 +87,8 @@ namespace Aesir {
 				graphics.DrawImage(image, point);
 		}
 		~Tile() { Dispose(false); }
-		private uint index;
-		public uint Index {
+		private int index;
+		public int Index {
 			get { return index; }
 			internal set { index = value; }
 		}
@@ -113,31 +107,33 @@ namespace Aesir {
 	}
 	abstract class TileManagerBase {
 		protected static TaskThread taskThread = new TaskThread();
-		protected static readonly Bitmap BlankBitmap = new Bitmap(Tile.Width, Tile.Height);
+		protected static readonly Image BlankImage = new Bitmap(Tile.Width, Tile.Height);
 	}
 	class TileManager<TTile> : TileManagerBase where TTile : Tile, new() {
 		public TileManager(string sourceTag, int sourceCount) {
 			string dataPath = Settings.Default.DataPath;
+			string archivePath = Path.Combine(dataPath, "tile.dat");
+			string paletteCollectionName = sourceTag + "." + PaletteCollection.fileExtension,
+				paletteTableName = sourceTag + "." + PaletteTable.fileExtension;
+			PaletteCollection paletteCollection;
 			PaletteTable paletteTable;
-			{
-				string mainDatPath = Path.Combine(dataPath, "tile.dat");
-				using(DatReader mainDatReader = new DatReader(mainDatPath))
-					paletteTable = new PaletteTable(mainDatReader, sourceTag);
+			using(FileStream archiveStream = new FileStream(archivePath, FileMode.Open)) {
+				ArchiveInfo archive = new ArchiveInfo(archiveStream);
+				archiveStream.Seek(archive.GetFile(paletteCollectionName).Offset, SeekOrigin.Begin);
+				paletteCollection = PaletteCollection.FromStream(archiveStream);
+				archiveStream.Seek(archive.GetFile(paletteTableName).Offset, SeekOrigin.Begin);
+				paletteTable = PaletteTable.FromStream(archiveStream);
 			}
 			GraphicLoader.ISourceProvider sourceProvider =
 				new GraphicLoader.SimpleSourceProvider(sourceCount, Path.Combine(dataPath, sourceTag));
-			graphicLoader = new GraphicLoader(paletteTable, sourceProvider);
+			graphicLoader = new GraphicLoader(paletteCollection, paletteTable, sourceProvider);
 
 			blankTile = new TTile();
-			blankTile.Create((Bitmap)BlankBitmap.Clone(), new Point(0, 0));
+			blankTile.Create((Image)BlankImage.Clone());
 			blankTile.Index = 0;
 			tiles.Add(0, blankTile);
 		}
-		private class TaskResult {
-			public Bitmap bitmap;
-			public EpfGraphicInfo graphicInfo;
-		}
-		public TileHandle<TTile> GetTile(uint index) {
+		public TileHandle<TTile> GetTile(int index) {
 			if(tiles.ContainsKey(index))
 				return new TileHandle<TTile>(tiles[index]);
 			TTile tile = new TTile();
@@ -148,15 +144,8 @@ namespace Aesir {
 			};
 			tiles.Add(index, tile);
 			taskThread.DoTask(
-				delegate() {
-					TaskResult result = new TaskResult();
-					result.bitmap = graphicLoader.LoadGraphic(index, out result.graphicInfo);
-					return result;
-				},
-				delegate(object args) {
-					TaskResult result = (TaskResult)args;
-					tile.Create(result.bitmap, result.graphicInfo.Point);
-				}
+				delegate() { return graphicLoader.LoadGraphic(index); },
+				delegate(object args) { tile.Create((Image)args); }
 			);
 			return new TileHandle<TTile>(tile);
 		}
@@ -164,7 +153,7 @@ namespace Aesir {
 		private GraphicLoader graphicLoader;
 		protected static TileManager<TTile> defaultInstance;
 		public static TileManager<TTile> Default { get { return defaultInstance; } }
-		private Dictionary<uint, TTile> tiles = new Dictionary<uint, TTile>();
+		private Dictionary<int, TTile> tiles = new Dictionary<int, TTile>();
 	}
 	class ObjectTile : Tile { }
 	class FloorTile : Tile { }

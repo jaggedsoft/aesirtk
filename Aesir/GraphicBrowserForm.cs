@@ -95,7 +95,7 @@ namespace Aesir {
 				}
 				public void Rebuild() {
 					Resize(panel.TileHeight + CacheRows * 2);
-					for(int rowIndex = 0; rowIndex < panel.TileHeight; ++rowIndex) {
+					for(int rowIndex = 0; rowIndex < panel.TileHeight + CacheRows * 2; ++rowIndex) {
 						TileHandle<FloorTile>[] row = this[rowIndex + CacheRows];
 						for(int columnIndex = 0; columnIndex < panel.TileWidth; ++columnIndex) {
 							row[columnIndex] = FloorTileManager.Default.GetTile(100);
