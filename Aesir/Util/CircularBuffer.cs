@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 
 namespace Aesir.Util {
-	abstract class CircularBuffer<T> {
+	abstract class CircularBuffer<T> : IEnumerable<T> {
 		public void Advance(int amount) {
 			headIndex += amount;
 			while(headIndex < 0) headIndex += buffer.Count;
@@ -22,6 +22,12 @@ namespace Aesir.Util {
 		protected abstract T Factory();
 		private int headIndex;
 		private List<T> buffer = new List<T>();
+		#region IEnumerable members
+		public IEnumerator<T> GetEnumerator() { return buffer.GetEnumerator(); }
+		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() {
+			return GetEnumerator();
+		}
+		#endregion
 	}
 	class SimpleCircularBuffer<T> : CircularBuffer<T> where T : new() {
 		protected override T Factory() { return new T(); }

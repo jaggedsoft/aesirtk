@@ -18,6 +18,9 @@ namespace Aesir {
 				value = (string)key.GetValue("Location");
 			}
 			Console.WriteLine(value);*/
+			FloorTileManager.Initialize();
+			ObjectTileManager.Initialize();
+			MainForm.Initialize();
 			Application.Run(MainForm.Default);
 		}
 	}

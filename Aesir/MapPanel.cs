@@ -75,7 +75,7 @@ namespace Aesir {
 			// TEMP
 			//Vector center = new Vector(Width / 2, Height / 2);
 			//Console.WriteLine(((Vector)args.Location - center) / camera.scale - camera.translate);
-			Console.WriteLine(camera.ScreenToWorld(lastMousePosition));
+			//Console.WriteLine(camera.ScreenToWorld(lastMousePosition));
 		}
 		private Vector lastMousePosition = new Vector(0, 0);
 		private class Camera {

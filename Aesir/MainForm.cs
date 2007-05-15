@@ -8,8 +8,6 @@ using System.Configuration;
 namespace Aesir {
 	class MainForm : Form {
 		public MainForm() {
-			FloorTileManager.Init();
-			ObjectTileManager.Init();
 			graphicBrowserForm = new GraphicBrowserForm();
 			mapPanel = new MapPanel(this);
 			Controls.Add(mapPanel);
@@ -45,7 +43,8 @@ namespace Aesir {
 		}
 		public MapPanel MapPanel { get { return mapPanel; } }
 		private MapPanel mapPanel;
-		private static MainForm defaultInstance = new MainForm();
+		private static MainForm defaultInstance;
+		public static void Initialize() { defaultInstance = new MainForm(); }
 		public static MainForm Default { get { return defaultInstance; } }
 		protected override void OnFormClosing(FormClosingEventArgs args) {
 			settings.Save();

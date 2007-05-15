@@ -159,10 +159,10 @@ namespace Aesir {
 	class FloorTile : Tile { }
 	class FloorTileManager : TileManager<FloorTile> {
 		private FloorTileManager() : base("tile", 16) { }
-		public static void Init() { defaultInstance = new FloorTileManager();  }
+		public static void Initialize() { defaultInstance = new FloorTileManager();  }
 	}
 	class ObjectTileManager : TileManager<ObjectTile> {
 		private ObjectTileManager() : base("tilec", 19) { }
-		public static void Init() { defaultInstance = new ObjectTileManager();  }
+		public static void Initialize() { defaultInstance = new ObjectTileManager(); }
 	}
 }

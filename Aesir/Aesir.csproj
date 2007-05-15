@@ -38,9 +38,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="FloorTile.cs">
-      <SubType>Component</SubType>
-    </Compile>
     <Compile Include="MapPanel.cs">
       <SubType>Component</SubType>
     </Compile>

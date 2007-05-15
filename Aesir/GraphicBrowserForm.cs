@@ -82,7 +82,7 @@ namespace Aesir {
 		#endregion
 		private abstract class TileBrowserPanel<TTile> : Panel where TTile : Tile, new() {
 			protected int TileWidth { get { return Width / Tile.Width; } }
-			protected int TileHeight { get { return Height / Tile.Height; } }
+			protected int TileHeight { get { return Height / Tile.Height + 1; } }
 		}
 		private class FloorTileBrowserPanel : TileBrowserPanel<FloorTile> {
 			private class Buffer : CircularBuffer<TileHandle<FloorTile>[]> {
@@ -93,14 +93,24 @@ namespace Aesir {
 				protected override TileHandle<FloorTile>[] Factory() {
 					return new TileHandle<FloorTile>[panel.TileWidth];
 				}
+				public new void Advance(int amount) {
+					base.Advance(amount);
+					if(amount > 0) {
+						panel.baseIndex += panel.TileWidth;
+						UpdateRow(Count - 1);
+					}
+				}
+				private void UpdateRow(int rowIndex) {
+					TileHandle<FloorTile>[] row = this[rowIndex];
+					for(int columnIndex = 0; columnIndex < row.Length; ++columnIndex) {
+						int index = panel.baseIndex + (rowIndex - CacheRows) * row.Length + columnIndex;
+						// TODO: Make this use the TileProvider
+						if(index >= 0) row[columnIndex] = FloorTileManager.Default.GetTile(index);
+					}
+				}
 				public void Rebuild() {
 					Resize(panel.TileHeight + CacheRows * 2);
-					for(int rowIndex = 0; rowIndex < panel.TileHeight + CacheRows * 2; ++rowIndex) {
-						TileHandle<FloorTile>[] row = this[rowIndex + CacheRows];
-						for(int columnIndex = 0; columnIndex < panel.TileWidth; ++columnIndex) {
-							row[columnIndex] = FloorTileManager.Default.GetTile(100);
-						}
-					}
+					for(int rowIndex = 0; rowIndex < Count; ++rowIndex) UpdateRow(rowIndex);
 				}
 			}
 			private int baseIndex = 0;
@@ -118,28 +128,32 @@ namespace Aesir {
 				buffer.Rebuild();
 			}
 			void scrollBar_Scroll(object sender, ScrollEventArgs args) {
+				buffer.Advance(1);
+				Refresh();
 			}
 			protected override void OnResize(EventArgs args) {
 				base.OnResize(args);
+				buffer.Rebuild();
+				UpdateScrollBar();
 			}
 			protected override void OnPaint(PaintEventArgs args) {
 				base.OnPaint(args);
-				for(int rowIndex = 0; rowIndex < TileHeight; ++rowIndex) {
-					TileHandle<FloorTile>[] row = buffer[rowIndex + CacheRows];
+				for(int rowIndex = CacheRows - 1; rowIndex <= TileHeight + 1; ++rowIndex) {
+					TileHandle<FloorTile>[] row = buffer[rowIndex];
 					for(int columnIndex = 0; columnIndex < TileWidth; ++columnIndex) {
 						TileHandle<FloorTile> floorTile = row[columnIndex];
-						Point point = new Point(columnIndex * Tile.Width, rowIndex * Tile.Height);
-						((FloorTile)floorTile).Draw(args.Graphics, point);
+						Point point = new Point(columnIndex * Tile.Width, (rowIndex - CacheRows) * Tile.Height);
+						if(floorTile != null) ((FloorTile)floorTile).Draw(args.Graphics, point);
 					}
 				}
 			}
-			private void UpdateScrollInfo() {
+			private void UpdateScrollBar() {
 				scrollBar.Enabled = true;
 				scrollBar.Maximum = (tileProvider.TileCount / TileWidth) * Tile.Height;
 			}
 			private void OnTileProviderChanged(EventArgs args) {
 				Debug.Assert(tileProvider != null);
-				UpdateScrollInfo();
+				UpdateScrollBar();
 			}
 			private ITileProvider tileProvider = null;
 			public ITileProvider TileProvider {
