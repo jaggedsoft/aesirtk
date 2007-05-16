@@ -9,7 +9,7 @@ namespace Aesir.Nexus {
 		public PaletteException(string message) : base(message) { }
 	}
 	/// <summary>
-	/// A palette provider allows one to retrieve a palette by its numerical index.
+	/// A palette provider allows you to retrieve a palette by its numerical index.
 	/// </summary>
 	interface IPaletteProvider {
 		Palette GetPalette(int index);

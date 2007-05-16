@@ -83,8 +83,12 @@ namespace Aesir {
 		private bool disposed = false;
 		public void Draw(Graphics graphics, Point point) {
 			if(disposed) throw new ObjectDisposedException("Tile");
-			lock(SyncRoot)
-				graphics.DrawImage(image, point);
+			if(image == null)
+				graphics.DrawImage(NullImage, point);
+			else {
+				lock(SyncRoot)
+					graphics.DrawImage(image, point);
+			}
 		}
 		~Tile() { Dispose(false); }
 		private int index;
@@ -92,7 +96,7 @@ namespace Aesir {
 			get { return index; }
 			internal set { index = value; }
 		}
-		protected Image image = NullImage;
+		protected Image image = null;
 		private static readonly Image NullImage = new Bitmap(@"null.png");
 		private int refcount = 0;
 		internal int Refcount {
@@ -102,6 +106,7 @@ namespace Aesir {
 				if(refcount <= 0) Dispose();
 			}
 		}
+		public override string ToString() { return "{Index:" + index + "}"; }
 		public static Size Size { get { return new Size(Width, Height); } }
 		public const int Width = 48, Height = 48;
 	}
@@ -132,6 +137,9 @@ namespace Aesir {
 			blankTile.Create((Image)BlankImage.Clone());
 			blankTile.Index = 0;
 			tiles.Add(0, blankTile);
+			blankTileHandle = new TileHandle<TTile>(blankTile);
+
+			defaultInstance = this;
 		}
 		public TileHandle<TTile> GetTile(int index) {
 			if(tiles.ContainsKey(index))
@@ -150,19 +158,18 @@ namespace Aesir {
 			return new TileHandle<TTile>(tile);
 		}
 		private readonly TTile blankTile;
+		private readonly TileHandle<TTile> blankTileHandle;
 		private GraphicLoader graphicLoader;
-		protected static TileManager<TTile> defaultInstance;
+		private static TileManager<TTile> defaultInstance;
 		public static TileManager<TTile> Default { get { return defaultInstance; } }
 		private Dictionary<int, TTile> tiles = new Dictionary<int, TTile>();
 	}
 	class ObjectTile : Tile { }
 	class FloorTile : Tile { }
 	class FloorTileManager : TileManager<FloorTile> {
-		private FloorTileManager() : base("tile", 16) { }
-		public static void Initialize() { defaultInstance = new FloorTileManager();  }
+		public FloorTileManager() : base("tile", 16) { }
 	}
 	class ObjectTileManager : TileManager<ObjectTile> {
-		private ObjectTileManager() : base("tilec", 19) { }
-		public static void Initialize() { defaultInstance = new ObjectTileManager(); }
+		public ObjectTileManager() : base("tilec", 19) { }
 	}
 }

@@ -43,9 +43,6 @@ namespace Aesir {
 		}
 		public MapPanel MapPanel { get { return mapPanel; } }
 		private MapPanel mapPanel;
-		private static MainForm defaultInstance;
-		public static void Initialize() { defaultInstance = new MainForm(); }
-		public static MainForm Default { get { return defaultInstance; } }
 		protected override void OnFormClosing(FormClosingEventArgs args) {
 			settings.Save();
 			graphicBrowserForm.Close();

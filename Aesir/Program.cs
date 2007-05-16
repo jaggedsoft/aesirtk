@@ -6,22 +6,23 @@ using System.Windows.Forms;
 using System.Drawing;
 using Aesir.Nexus;
 using Microsoft.Win32;
+using Aesir.Util;
 
 // NOTE: My Computer\HKEY_CURRENT_USER\Software\Nexon\Kingdom of the Winds\Location
 namespace Aesir {
-	static class Program {
+	class Program {
+		private static MainForm mainForm;
+		public static MainForm MainForm { get { return mainForm; } }
+		private static FloorTileManager floorTileManager;
+		public static FloorTileManager FloorTileManager { get { return floorTileManager; } }
+		private static ObjectTileManager objectTileManager;
+		public static ObjectTileManager ObjectTileManager { get { return objectTileManager; } }
 		[STAThread()]
 		static void Main(string[] args) {
-			/*RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Nexon\Kingdom of the Winds");
-			string value;
-			using(key) {
-				value = (string)key.GetValue("Location");
-			}
-			Console.WriteLine(value);*/
-			FloorTileManager.Initialize();
-			ObjectTileManager.Initialize();
-			MainForm.Initialize();
-			Application.Run(MainForm.Default);
+			floorTileManager = new FloorTileManager();
+			objectTileManager = new ObjectTileManager();
+			mainForm = new MainForm();
+			Application.Run(mainForm);
 		}
 	}
 }
