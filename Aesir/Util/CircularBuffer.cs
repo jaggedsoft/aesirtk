@@ -1,25 +1,46 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Windows.Forms;
 
 namespace Aesir.Util {
 	abstract class CircularBuffer<T> : IEnumerable<T> {
-		public void Advance(int amount) {
-			headIndex += amount;
-			while(headIndex < 0) headIndex += buffer.Count;
-			headIndex %= buffer.Count;
+		private int Clamp(int value) {
+			while(value < 0) value += buffer.Count;
+			return (value % buffer.Count);
 		}
+		public void Advance(int amount, object state) {
+			int amountDirty = Math.Abs(amount) % buffer.Count;
+			for(int index = 0; index < amountDirty; ++index) {
+				int bufferIndex = 0;
+				T element = default(T);
+				if(amount > 0) {
+					element = Create(buffer.Count - amountDirty + index, state);
+					bufferIndex = Clamp(headIndex + index);
+				} else if(amount < 0) {
+					element = Create(amountDirty - index - 1, state);
+					bufferIndex = Clamp(headIndex - index - 1);
+				}
+				Dispose(buffer[bufferIndex]);
+				buffer[bufferIndex] = element;
+			}
+			headIndex = Clamp(headIndex + amount);
+		}
+		protected abstract T Create(int index, object state);
+		protected virtual void Dispose(T element) { }
 		public T this[int index] {
-			get { return buffer[(index + headIndex) % buffer.Count]; }
-			set { buffer[(index + headIndex) % buffer.Count] = value; }
+			get { return buffer[Clamp(index + headIndex)]; }
 		}
-		public void Resize(int count) {
+		public void Rebuild(int count, object state) {
+			foreach(T element in this) Dispose(element);
+			headIndex = 0;
 			while(buffer.Count > count) buffer.RemoveAt(0);
-			for(int index = 0; index < buffer.Count; ++index) buffer[index] = Factory();
-			while(buffer.Count < count) buffer.Add(Factory());
+			for(int index = 0; index < buffer.Count; ++index)
+				buffer[index] = Create(index, state);
+			for(int index = buffer.Count; index < count; ++index)
+				buffer.Add(Create(index, state));
 		}
 		public int Count { get { return buffer.Count; } }
-		protected abstract T Factory();
 		private int headIndex;
 		private List<T> buffer = new List<T>();
 		#region IEnumerable members
@@ -28,8 +49,5 @@ namespace Aesir.Util {
 			return GetEnumerator();
 		}
 		#endregion
-	}
-	class SimpleCircularBuffer<T> : CircularBuffer<T> where T : new() {
-		protected override T Factory() { return new T(); }
 	}
 }

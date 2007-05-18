@@ -8,16 +8,17 @@ using System.Configuration;
 using Aesir.Nexus;
 using Aesir.Util;
 using System.Diagnostics;
+using System.Drawing.Imaging;
 
 namespace Aesir {
 	class GraphicBrowserForm : Form {
 		public GraphicBrowserForm() {
 			FormBorderStyle = FormBorderStyle.SizableToolWindow;
 			Text = "Graphic Browser";
-			TabControl tabControl = new TabControl();
+			tabControl = new TabControl();
 			tabControl.Dock = DockStyle.Fill;
-			tabControl.TabPages.Add(new FloorTileBrowserTabPage(this));
-			tabControl.TabPages.Add(new ObjectTileBrowserTabPage(this));
+			tabControl.TabPages.Add(floorTileBrowser = new FloorTileBrowserTabPage(this));
+			tabControl.TabPages.Add(objectTileBrowser = new ObjectTileBrowserTabPage(this));
 			Controls.Add(tabControl);
 			DataBindings.Add(new Binding("Size", settings, "FormSize", true,
 				DataSourceUpdateMode.OnPropertyChanged));
@@ -26,6 +27,16 @@ namespace Aesir {
 			settings.SettingsLoaded += delegate(object sender, SettingsLoadedEventArgs args) {
 				splitterDistance = settings.SplitterDistance; };
 		}
+		protected override void OnMouseWheel(MouseEventArgs args) {
+			base.OnMouseWheel(args);
+			if(tabControl.SelectedTab == floorTileBrowser)
+				floorTileBrowser.TileBrowserPanel.OnMouseWheel(args);
+			else if(tabControl.SelectedTab == objectTileBrowser)
+				objectTileBrowser.TileBrowserPanel.OnMouseWheel(args);
+		}
+		private TabControl tabControl;
+		private FloorTileBrowserTabPage floorTileBrowser;
+		private ObjectTileBrowserTabPage objectTileBrowser;
 		protected override void OnFormClosing(FormClosingEventArgs args) {
 			settings.SplitterDistance = splitterDistance;
 			settings.Save();
@@ -55,35 +66,6 @@ namespace Aesir {
 			private ListView listView = new ListView();
 			private ListViewHeader listViewHeader;
 		}
-		#region Index providers
-		private interface IIndexProvider {
-			/// <summary>
-			///		Gets the number of tiles this <c>IIndexProvider</c> provides.
-			/// </summary>
-			int Count { get; }
-			/// <summary>
-			///		Transform a "local" index into an "absolute" index.
-			/// </summary>
-			int this[int localIndex] { get; }
-		}
-		/// <summary>
-		///		This simple index provider does not perform any special mapping from "local" indices
-		///		to "absolute" indices; the indexer implementation simply returns the provided index.
-		/// </summary>
-		private class SimpleIndexProvider : IIndexProvider {
-			private int count;
-			public int Count { get { return count; } }
-			public int this[int localIndex] {
-				get {
-					Debug.Assert(localIndex < count && localIndex >= 0);
-					return localIndex;
-				}
-			}
-			public SimpleIndexProvider(int count) {
-				this.count = count;
-			}
-		}
-		#endregion
 		/// <summary>
 		///		This abstract class forms the base for <c>FloorTileBrowserPanel</c> and
 		///		<c>ObjectTileBrowserPanel</c>. A <c>TileBrowserPanel</c> presents the user with
@@ -95,169 +77,121 @@ namespace Aesir {
 			protected TileBrowserPanel() {
 				DoubleBuffered = true;
 			}
-			// With the Buffer and the IRowProvider, the orientation of a "row" depends on whether
-			// we are dealing with a FloorTileBrowserPanel or an ObjectTileBrowserPanel. For floor
-			// tiles, a row is horizontal. For object tiles, a row is vertical. In both cases, a
-			// "row" is aligned perpendicularly to the scroll bar.
-			protected interface IRowProvider {
-				int GetIndex(int rowIndex, int columnIndex);
+			protected abstract void OnScroll(int delta, int value);
+			protected void InitializeScrollBar() {
+				ScrollBar.ValueChanged += delegate(object sender, EventArgs args) {
+					int delta = ScrollBar.Value - oldScrollBarValue;
+					oldScrollBarValue = ScrollBar.Value;
+					OnScroll(delta, ScrollBar.Value);
+				};
+				ScrollBar.Scroll += delegate(object sender, ScrollEventArgs args) {
+					OnScroll(args.NewValue - args.OldValue, args.NewValue);
+				};
 			}
-			protected class TileView : CircularBuffer<TileHandle<TTile>[]> {
-				public TileView(TileBrowserPanel<TTile> panel, IRowProvider rowProvider) {
-					this.panel = panel;
-					this.rowProvider = rowProvider;
-				}
-				private TileBrowserPanel<TTile> panel;
-				private IRowProvider rowProvider;
-				protected override TileHandle<TTile>[] Factory() {
-					return new TileHandle<TTile>[ColumnCount];
-				}
-				private int ColumnCount {
-					get {
-						if(panel.Orientation == Orientation.Vertical)
-							return panel.TileWidth;
-						else return panel.TileHeight;
+			internal virtual new void OnMouseWheel(MouseEventArgs args) {
+				int delta = ScrollBar.SmallChange * (args.Delta / -120);
+				ScrollBar.Value = MathUtil.Clamp(ScrollBar.Value + delta, 0, ScrollBar.Maximum);
+			}
+			protected abstract class TileView : CircularBuffer<TileHandle<TTile>[]> {
+				protected override void Dispose(TileHandle<TTile>[] element) {
+					if(element == null) return;
+					foreach(TileHandle<TTile> tile in element) {
+						if(tile != null) tile.Dispose();
 					}
-				}
-				private int RowCount {
-					get {
-						if(panel.Orientation == Orientation.Vertical)
-							return panel.TileHeight;
-						else return panel.TileWidth;
-					}
-				}
-				private int TotalRowCount {
-					get { return RowCount + RowCache * 2; }
-				}
-				private void UpdateRow(int rowIndex) {
-					TileHandle<TTile>[] row = base[rowIndex];
-					for(int columnIndex = 0; columnIndex < row.Length; ++columnIndex) {
-						int index = rowProvider.GetIndex(rowIndex - RowCache, columnIndex);
-						if(index >= 0 && index < panel.indexProvider.Count) {
-							index = panel.indexProvider[index];
-							row[columnIndex] = TileManager<TTile>.Default.GetTile(index);
-						}
-					}
-				}
-				private void Dispose() {
-					foreach(TileHandle<TTile>[] row in this) {
-						foreach(TileHandle<TTile> tile in row) {
-							if(tile != null) tile.Dispose();
-						}
-					}
-				}
-				public void Draw(Graphics graphics) {
-					for(int rowIndex = 0; rowIndex < RowCount; ++rowIndex) {
-						for(int columnIndex = 0; columnIndex < ColumnCount; ++columnIndex) {
-							TileHandle<TTile> tile = this[rowIndex][columnIndex];
-							Point point;
-							if(panel.Orientation == Orientation.Vertical)
-								point = new Point(columnIndex, rowIndex);
-							else point = new Point(rowIndex, columnIndex);
-							point = new Point(point.X * Tile.Width, point.Y * Tile.Height);
-							if(tile != null) ((TTile)tile).Draw(graphics, point);
-						}
-					}
-				}
-				public new void Advance(int amount) {
-					base.Advance(amount);
-					if(amount > RowCount) {
-						Rebuild();
-						return;
-					}
-					if(amount > 0) {
-						for(int index = TotalRowCount - amount; index < TotalRowCount; ++index)
-							UpdateRow(index);
-					} else {
-						for(int index = 0; index < Math.Abs(amount); ++index)
-							UpdateRow(index);
-					}
-				}
-				public void Rebuild() {
-					Dispose();
-					Resize(TotalRowCount);
-					for(int rowIndex = 0; rowIndex < TotalRowCount; ++rowIndex)
-						UpdateRow(rowIndex);
-				}
-				public new TileHandle<TTile>[] this[int index] {
-					get { return base[index + RowCache]; }
-					set { base[index + RowCache] = value; }
 				}
 			}
-			protected TileView tileView;
-			private IIndexProvider indexProvider;
-			protected virtual void OnIndexProviderChanged(EventArgs args) { }
-			public IIndexProvider IndexProvider {
-				get { return indexProvider; }
-				set {
-					indexProvider = value;
-					OnIndexProviderChanged(EventArgs.Empty);
-				}
-			}
-			protected abstract Orientation Orientation { get; }
-			private const int RowCache = 2;
+			private int oldScrollBarValue = 0;
+			protected abstract ScrollBar ScrollBar { get; }
 		}
 		private class FloorTileBrowserPanel : TileBrowserPanel<FloorTile> {
-			protected override Orientation Orientation {
-				get { return Orientation.Vertical; }
+			private new int TileWidth { get { return (Width - scrollBar.Width) / Tile.Width; } }
+			protected override ScrollBar ScrollBar {
+				get { return scrollBar; }
 			}
-			private class RowProvider : IRowProvider {
-				public RowProvider(FloorTileBrowserPanel panel) {
+			private class FloorTileView : TileView {
+				public FloorTileView(FloorTileBrowserPanel panel) {
 					this.panel = panel;
 				}
 				private FloorTileBrowserPanel panel;
-				public int GetIndex(int rowIndex, int columnIndex) {
-					int baseIndex = 0;
-					baseIndex = panel.scrollBar.Value * panel.TileWidth;
-					return baseIndex + rowIndex * panel.TileWidth + columnIndex;
+				protected override TileHandle<FloorTile>[] Create(int index, object stateObj) {
+					State state = (State)stateObj;
+					TileHandle<FloorTile>[] element = new TileHandle<FloorTile>[state.Width];
+					for(int elementIndex = 0; elementIndex < state.Width; ++elementIndex) {
+						element[elementIndex] = Program.FloorTileManager.GetTile(
+							state.Offset * state.Width + elementIndex + index * state.Width);
+						((FloorTile)element[elementIndex]).Load += delegate(object sender, EventArgs args) {
+							panel.Refresh();
+						};
+					}
+					return element;
+				}
+				public struct State {
+					private int width;
+					private int offset;
+					public State(int width, int offset) {
+						this.width = width;
+						this.offset = offset;
+					}
+					public int Width { get { return width; } }
+					public int Offset { get { return offset; } }
 				}
 			}
+			private FloorTileView tileView;
+			private FloorTileView.State GetState() {
+				return new FloorTileView.State(TileWidth, scrollBar.Value);
+			}
 			public FloorTileBrowserPanel() {
-				tileView = new TileView(this, new RowProvider(this));
+				tileView = new FloorTileView(this);
 				ResizeRedraw = false;
 				scrollBar.Dock = DockStyle.Right;
 				scrollBar.Enabled = false; // Disable the scroll bar until we have a TileProvider
-				scrollBar.Scroll += new ScrollEventHandler(scrollBar_Scroll);
-				scrollBar.LargeChange = 4;
+				scrollBar.LargeChange = 2;
 				Controls.Add(scrollBar);
-				IndexProvider = new SimpleIndexProvider(500); // TEMP: A temporary tile provider
-				tileView.Rebuild();
+				InitializeScrollBar();
+				ContextMenu = new ContextMenu(new MenuItem[]{ new MenuItem("Lol") });
 			}
-			void scrollBar_Scroll(object sender, ScrollEventArgs args) {
-				int delta = args.NewValue - args.OldValue;
-				tileView.Advance(delta);
+			protected override void OnScroll(int delta, int value) {
+				tileView.Advance(delta, new FloorTileView.State(TileWidth, value));
 				Refresh();
 			}
 			protected override void OnResize(EventArgs args) {
 				base.OnResize(args);
-				tileView.Rebuild();
+				tileView.Rebuild(TileHeight, GetState());
 				UpdateScrollBar();
+			}
+			protected override void OnMouseMove(MouseEventArgs args) {
+				base.OnMouseMove(args);
+				mouseTileLocation = new Point(args.X / Tile.Width, args.Y / Tile.Height);
+				Refresh();
+			}
+			protected override void OnMouseDown(MouseEventArgs args) {
+				base.OnMouseDown(args);
 			}
 			protected override void OnPaint(PaintEventArgs args) {
 				base.OnPaint(args);
-				tileView.Draw(args.Graphics);
-				/*for(int rowIndex = CacheRows - 1; rowIndex <= TileHeight + 1; ++rowIndex) {
-					TileHandle<FloorTile>[] row = buffer[rowIndex];
+				for(int rowIndex = 0; rowIndex <= TileHeight; ++rowIndex) {
+					TileHandle<FloorTile>[] row = tileView[rowIndex];
 					for(int columnIndex = 0; columnIndex < TileWidth; ++columnIndex) {
-						TileHandle<FloorTile> floorTile = row[columnIndex];
-						Point point = new Point(columnIndex * Tile.Width, (rowIndex - CacheRows) * Tile.Height);
-						if(floorTile != null) ((FloorTile)floorTile).Draw(args.Graphics, point);
+						TileHandle<FloorTile> tileHandle  = row[columnIndex];
+						Point point = new Point(columnIndex * Tile.Width, rowIndex * Tile.Height);
+						if(tileHandle != null) ((FloorTile)tileHandle).Draw(args.Graphics, point);
 					}
-				}*/
+				}
+				args.Graphics.DrawRectangle(Pens.Black, mouseTileLocation.X * Tile.Width,
+					mouseTileLocation.Y * Tile.Height, Tile.Width, Tile.Height);
 			}
+			private Point mouseTileLocation = new Point();
 			private void UpdateScrollBar() {
 				scrollBar.Enabled = true;
-				scrollBar.Maximum = (IndexProvider.Count / TileWidth);
-			}
-			protected override void OnIndexProviderChanged(EventArgs args) {
-				base.OnIndexProviderChanged(args);
-				UpdateScrollBar();
+				scrollBar.Maximum = 100; // TODO
 			}
 			private VScrollBar scrollBar = new VScrollBar();
 		}
 		private class ObjectTileBrowserPanel : TileBrowserPanel<ObjectTile> {
-			protected override Orientation Orientation {
-				get { return Orientation.Horizontal; }
+			protected override ScrollBar ScrollBar {
+				get { return null; } // TODO
+			}
+			protected override void OnScroll(int delta, int value) {
 			}
 		}
 		private class TileBrowserTabPage<TTile> : TabPage where TTile : Tile, new() {
@@ -283,29 +217,12 @@ namespace Aesir {
 			private TileBrowserPanel<TTile> tileBrowserPanel;
 			private SplitContainer splitContainer = new SplitContainer();
 			private CategoryPanel categoryPanel = new CategoryPanel();
+			public TileBrowserPanel<TTile> TileBrowserPanel {
+				get { return tileBrowserPanel; }
+			}
 		}
 		private int splitterDistance;
-		private Settings settings = new Settings();
-		private sealed class Settings : ApplicationSettingsBase {
-			[UserScopedSetting()]
-			[DefaultSettingValue("150")]
-			public int SplitterDistance {
-				get { return (int)this["SplitterDistance"]; }
-				set { this["SplitterDistance"] = value; }
-			}
-			[UserScopedSetting()]
-			[DefaultSettingValue("400, 400")]
-			public Size FormSize {
-				get { return (Size)this["FormSize"]; }
-				set { this["FormSize"] = value; }
-			}
-			[UserScopedSetting()]
-			[DefaultSettingValue("100, 100")]
-			public Point FormLocation {
-				get { return (Point)this["FormLocation"]; }
-				set { this["FormLocation"] = value; }
-			}
-		}
+		private Settings.GraphicBrowserForm settings = Settings.GraphicBrowserForm.Default;
 		private class FloorTileBrowserTabPage : TileBrowserTabPage<FloorTile> {
 			public FloorTileBrowserTabPage(GraphicBrowserForm graphicBrowserForm)
 				: base(graphicBrowserForm, new FloorTileBrowserPanel()) {

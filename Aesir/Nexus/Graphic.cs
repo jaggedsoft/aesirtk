@@ -147,7 +147,7 @@ namespace Aesir.Nexus {
 				GraphicInfo info = GraphicInfo.FromStream(sourceStream);
 				sourceStream.Seek(baseOffset, SeekOrigin.Begin);
 				sourceStream.Seek(info.DataOffset, SeekOrigin.Current);
-				int paletteIndex = paletteTable.Mapping[index];
+				int paletteIndex = paletteTable[index];
 				Palette palette = paletteProvider.GetPalette(paletteIndex);
 
 				BinaryReader binaryReader = new BinaryReader(sourceStream);

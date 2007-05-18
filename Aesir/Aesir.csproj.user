@@ -16,6 +16,8 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <StartWorkingDirectory>C:\Code\Nexus\Aesir\</StartWorkingDirectory>
+    <StartAction>Program</StartAction>
+    <StartProgram>C:\Code\Nexus\Aesir\Aesir.exe</StartProgram>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <StartWorkingDirectory>C:\Code\Projects\Aesir</StartWorkingDirectory>

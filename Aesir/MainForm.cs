@@ -9,7 +9,7 @@ namespace Aesir {
 	class MainForm : Form {
 		public MainForm() {
 			graphicBrowserForm = new GraphicBrowserForm();
-			mapPanel = new MapPanel(this);
+			mapPanel = new MapViewPanel(this);
 			Controls.Add(mapPanel);
 			Text = "Aesir";
 			DataBindings.Add(new Binding("Size", settings, "FormSize", true,
@@ -41,27 +41,13 @@ namespace Aesir {
 			mapPanel.Location = new Point(0, 0);
 			mapPanel.Size = ClientRectangle.Size - new Size(0, statusBar.Height);
 		}
-		public MapPanel MapPanel { get { return mapPanel; } }
-		private MapPanel mapPanel;
+		private Settings.MainForm settings = Settings.MainForm.Default;
+		public MapViewPanel MapPanel { get { return mapPanel; } }
+		private MapViewPanel mapPanel;
 		protected override void OnFormClosing(FormClosingEventArgs args) {
-			settings.Save();
 			graphicBrowserForm.Close();
+			settings.Save();
 			base.OnFormClosing(args);
-		}
-		private Settings settings = new Settings();
-		private sealed class Settings : ApplicationSettingsBase {
-			[UserScopedSetting()]
-			[DefaultSettingValue("600, 600")]
-			public Size FormSize {
-				get { return (Size)this["FormSize"];  }
-				set { this["FormSize"] = value;  }
-			}
-			[UserScopedSetting()]
-			[DefaultSettingValue("400, 400")]
-			public Point FormLocation {
-				get { return (Point)this["FormLocation"]; }
-				set { this["FormLocation"] = value;  }
-			}
 		}
 	}
 }

@@ -38,26 +38,44 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="MapPanel.cs">
+    <Compile Include="Settings\Global.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>Global.settings</DependentUpon>
+    </Compile>
+    <Compile Include="Settings\GraphicBrowserForm.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>GraphicBrowserForm.settings</DependentUpon>
+    </Compile>
+    <Compile Include="Settings\MainForm.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>MainForm.settings</DependentUpon>
+    </Compile>
+    <Compile Include="MapViewPanel.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Map.cs">
+    <Compile Include="MapDocument.cs">
     </Compile>
     <Compile Include="Nexus\ArchiveInfo.cs" />
     <Compile Include="Nexus\Graphic.cs" />
     <Compile Include="Nexus\ObjectInfo.cs" />
     <Compile Include="Nexus\Palette.cs" />
+    <Compile Include="Settings\TileManagerBase.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>TileManagerBase.settings</DependentUpon>
+    </Compile>
+    <Compile Include="TileGroup.cs" />
+    <Compile Include="Util\GraphicsUtil.cs" />
+    <Compile Include="Util\MathUtil.cs" />
+    <Compile Include="Util\PriorityQueue.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Resources.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
-    <Compile Include="Settings.cs" />
     <Compile Include="GraphicBrowserForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -69,14 +87,23 @@
     <Compile Include="Util\Vector.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Resources.resx">
-      <SubType>Designer</SubType>
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\FloorTileToolIcon.ico" />
+    <None Include="app.config" />
+    <None Include="Settings\Global.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Global.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="Settings\GraphicBrowserForm.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>GraphicBrowserForm.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="Settings\MainForm.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>MainForm.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="Settings\TileManagerBase.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>TileManagerBase.Designer.cs</LastGenOutput>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

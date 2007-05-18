@@ -17,7 +17,7 @@ namespace Aesir {
 		public virtual bool CanExport(string fileName) { return false; }
 		public virtual bool CanImport(string fileName) { return false; }
 	}
-	class Map {
+	class MapDocument {
 		public delegate void Visitor(Vector point, FloorTile floorTile, ObjectTile objectTile);
 		private struct Cell {
 			public FloorTile floorTile;
@@ -61,7 +61,7 @@ namespace Aesir {
 		private Section center = new Section(new Vector(0, 0));
 		Vector centerIndex = new Vector(0, 0);
 		private Section[,] sections = new Section[1, 1];
-		public Map() {
+		public MapDocument() {
 			sections[0, 0] = center;
 		}
 		/// <summary>

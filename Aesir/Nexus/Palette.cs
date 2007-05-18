@@ -55,20 +55,22 @@ namespace Aesir.Nexus {
 			BinaryReader binaryReader = new BinaryReader(stream);
 			int count = binaryReader.ReadUInt16();
 			stream.Seek(2, SeekOrigin.Current);
-			int[] mapping = new int[count];
+			int[] entries = new int[count];
 			for(int index = 0; index < count; ++index) {
 				byte buffer = binaryReader.ReadByte();
 				stream.Seek(1, SeekOrigin.Current);
-				mapping[index] = buffer;
+				entries[index] = buffer;
 			}
-			return new PaletteTable(mapping);
+			return new PaletteTable(entries);
 		}
-		private PaletteTable(int[] mapping) {
-			this.mapping = mapping;
+		private PaletteTable(int[] entries) {
+			this.entries = entries;
 		}
-		private int[] mapping;
-		public int[] Mapping { get { return mapping; } }
-		public const string fileExtension = "tbl";
+		private int[] entries;
+		public int this[int index] {
+			get { return entries[index]; }
+		}
+		public const string FileExtension = "tbl";
 	}
 	/// <summary>
 	/// A palette maps byte values to a corrosponding color.

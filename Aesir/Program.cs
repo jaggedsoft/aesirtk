@@ -7,6 +7,7 @@ using System.Drawing;
 using Aesir.Nexus;
 using Microsoft.Win32;
 using Aesir.Util;
+using System.Configuration;
 
 // NOTE: My Computer\HKEY_CURRENT_USER\Software\Nexon\Kingdom of the Winds\Location
 namespace Aesir {
@@ -19,10 +20,16 @@ namespace Aesir {
 		public static ObjectTileManager ObjectTileManager { get { return objectTileManager; } }
 		[STAThread()]
 		static void Main(string[] args) {
-			floorTileManager = new FloorTileManager();
-			objectTileManager = new ObjectTileManager();
+			try {
+				floorTileManager = new FloorTileManager();
+				objectTileManager = new ObjectTileManager();
+			} catch(IOException exception) {
+				// TODO: Descriptive error message and option to choose a data path manually.
+				return;
+			}
 			mainForm = new MainForm();
 			Application.Run(mainForm);
+			Settings.Global.Default.Save();
 		}
 	}
 }

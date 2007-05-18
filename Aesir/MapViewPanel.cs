@@ -8,9 +8,9 @@ using Aesir.Nexus;
 using Aesir.Util;
 
 namespace Aesir {
-	class MapPanel : Panel {
+	class MapViewPanel : Panel {
 		private delegate void RefreshDelegate();
-		public MapPanel(MainForm mainForm) {
+		public MapViewPanel(MainForm mainForm) {
 			DoubleBuffered = true;
 			/*for(int y = 0; y < 40; ++y) {
 				for(int x = 0; x < 40; ++x) {
@@ -102,19 +102,19 @@ namespace Aesir {
 				graphics.TranslateTransform(translate.X, translate.Y, MatrixOrder.Append);
 			}
 			private Vector center;
-			public Camera(MapPanel mapPanel) {
+			public Camera(MapViewPanel mapPanel) {
 				this.mapPanel = mapPanel;
 				mapPanel.Resize += delegate(object sender, EventArgs args) {
 					center = new Vector(mapPanel.Width / 2, mapPanel.Height / 2); };
 			}
-			private MapPanel mapPanel;
+			private MapViewPanel mapPanel;
 		}
 		protected override void OnResize(EventArgs args) {
 			base.OnResize(args);
 			Refresh();
 		}
 		private Camera camera;
-		private Map map = new Map();
-		public Map Map { get { return map; } }
+		private MapDocument map = new MapDocument();
+		public MapDocument Map { get { return map; } }
 	}
 }

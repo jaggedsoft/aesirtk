@@ -8,14 +8,17 @@ namespace Aesir.Util {
 	class TaskThread {
 		public delegate object TaskRun();
 		public delegate void TaskCompleted(object args);
-		private class Task {
+		private class Task : IComparable {
 			public TaskRun taskRun;
 			public TaskCompleted taskCompleted;
-			public uint priority;
-			public Task(TaskRun taskRun, TaskCompleted taskCompleted, uint priority) {
+			public int priority;
+			public Task(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
 				this.taskRun = taskRun;
 				this.taskCompleted = taskCompleted;
 				this.priority = priority;
+			}
+			public int CompareTo(object obj) {
+				return priority.CompareTo(((Task)obj).priority);
 			}
 		}
 		private class TaskResult {
@@ -33,16 +36,14 @@ namespace Aesir.Util {
 		public void DoTask(TaskRun taskRun, TaskCompleted taskCompleted) {
 			DoTask(taskRun, taskCompleted, 0);
 		}
-		public void DoTask(TaskRun taskRun, TaskCompleted taskCompleted, uint priority) {
+		public void DoTask(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
 			Task task = new Task(taskRun, taskCompleted, priority);
-			tasks.Add(task);
+			tasks.Push(task);
 			UpdateThread();
 		}
 		private void UpdateThread() {
-			if(!thread.IsBusy && tasks.Count > 0) {
-				thread.RunWorkerAsync(tasks[0]);
-				tasks.RemoveAt(0);
-			}
+			if(!thread.IsBusy && tasks.Count > 0)
+				thread.RunWorkerAsync(tasks.Pop());
 		}
 		private void thread_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs args) {
 			TaskResult taskResult = (TaskResult)args.Result;
@@ -54,7 +55,7 @@ namespace Aesir.Util {
 			args.Result = new TaskResult(task.taskRun(), task);
 			if(thread.CancellationPending) args.Cancel = true;
 		}
-		private List<Task> tasks = new List<Task>();
+		private IPriorityQueue tasks = new BinaryPriorityQueue();
 		private BackgroundWorker thread = new BackgroundWorker();
 	}
 }
