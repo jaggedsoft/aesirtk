@@ -210,7 +210,8 @@ namespace Aesir.Util {
 		}
 
 		void IList.Remove(object value) {
-			throw new NotSupportedException();
+			InnerList.Remove(value); // NOTE: My modification
+			// throw new NotSupportedException();
 		}
 
 		int IList.IndexOf(object value) {

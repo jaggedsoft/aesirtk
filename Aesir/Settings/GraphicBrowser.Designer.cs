@@ -13,11 +13,11 @@ namespace Aesir.Settings {
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "8.0.0.0")]
-    internal sealed partial class GraphicBrowserForm : global::System.Configuration.ApplicationSettingsBase {
+    internal sealed partial class GraphicBrowser : global::System.Configuration.ApplicationSettingsBase {
         
-        private static GraphicBrowserForm defaultInstance = ((GraphicBrowserForm)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new GraphicBrowserForm())));
+        private static GraphicBrowser defaultInstance = ((GraphicBrowser)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new GraphicBrowser())));
         
-        public static GraphicBrowserForm Default {
+        public static GraphicBrowser Default {
             get {
                 return defaultInstance;
             }

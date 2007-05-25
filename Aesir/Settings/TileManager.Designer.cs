@@ -13,11 +13,11 @@ namespace Aesir.Settings {
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "8.0.0.0")]
-    internal sealed partial class TileManagerBase : global::System.Configuration.ApplicationSettingsBase {
+    internal sealed partial class TileManager : global::System.Configuration.ApplicationSettingsBase {
         
-        private static TileManagerBase defaultInstance = ((TileManagerBase)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new TileManagerBase())));
+        private static TileManager defaultInstance = ((TileManager)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new TileManager())));
         
-        public static TileManagerBase Default {
+        public static TileManager Default {
             get {
                 return defaultInstance;
             }

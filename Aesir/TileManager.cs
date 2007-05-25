@@ -12,9 +12,7 @@ using Aesir.Util;
 using System.Drawing.Imaging;
 using System.Configuration;
 
-// TODO: Quit gracefully when we can't find the tile archives in the data path
-// TODO: Implement priorities for tile loading
-// TODO: Make it so that tiles are not immediately unloaded
+// TODO: The priorities aren't working correctly, maybe PromoteTask is bugged?
 namespace Aesir {
 	/// <summary>
 	///		A <c>TileHandle</c> is used to refer to a <c>Tile</c> that was retrieved from a
@@ -42,19 +40,48 @@ namespace Aesir {
 		public object Clone() {
 			return new TileHandle<TTile>(tile);
 		}
-		public static implicit operator Tile(TileHandle<TTile> tileHandle) {
-			if(tileHandle == null) throw new InvalidCastException("The TileHandle cannot be null.");
-			return tileHandle.tile;
-		}
+		
 		public override bool Equals(object obj) {
 			return tile.Index == ((TileHandle<TTile>)obj).tile.Index;
 		}
+		public override int GetHashCode() {
+			return tile.Index.GetHashCode();
+		}
+		public static implicit operator TTile(TileHandle<TTile> handle) {
+			if(handle == null) throw new InvalidCastException("Cannot cast a null TileHandle.");
+			else return handle.tile;
+		}
+		public static implicit operator Tile(TileHandle<TTile> handle) {
+			if(handle == null) throw new InvalidCastException("Cannot cast a null TileHandle.");
+			else return handle.tile;
+		}
+		#region Wrappers for Tile methods
+		public int Index {
+			get { return tile.Index; }
+		}
+		public Image Image {
+			get { return tile.Image; }
+		}
+		public event EventHandler Load {
+			add { tile.Load += value; }
+			remove { tile.Load -= value; }
+		}
+		public event EventHandler Release {
+			add { tile.Release += value; }
+			remove { tile.Release -= value; }
+		}
+		public object SyncRoot {
+			get { return tile.SyncRoot; }
+		}
+		#endregion
 		private bool disposed = false;
 		private TTile tile;
 	}
 	abstract class Tile : IDisposable {
 		private object syncRoot = new Object();
-		public object SyncRoot { get { return syncRoot; } }
+		public object SyncRoot {
+			get { return syncRoot; }
+		}
 		/// <summary>
 		///		This event handler is invoked when the tile is loaded. Note that loading is an
 		///		asynchronous operation.
@@ -66,7 +93,7 @@ namespace Aesir {
 		/// </summary>
 		public event EventHandler Release;
 		internal void Create(Image image) {
-			this.image = image;
+			lock(syncRoot) this.image = image;
 			if(Load != null) Load(this, EventArgs.Empty);
 		}
 		internal void OnRelease() {
@@ -86,25 +113,22 @@ namespace Aesir {
 		}
 		private bool disposed = false;
 		~Tile() { Dispose(false); }
-		public void Draw(Graphics graphics, Point point) {
-			if(disposed) throw new ObjectDisposedException("Tile");
-			if(image == null)
-				graphics.DrawImage(NullImage, point);
-			else {
-				lock(SyncRoot)
-					graphics.DrawImage(image, point);
-			}
-		}
 		public Image Image {
-			get { return image; }
+			get {
+				if(disposed) throw new ObjectDisposedException("Tile");
+				return image;
+			}
 		}
 		private int index;
 		public int Index {
 			get { return index; }
 			internal set { index = value; }
 		}
-		protected Image image = null;
-		private static readonly Image NullImage = new Bitmap(@"null.png");
+		protected Image image = nullImage; // TODO: Did this cause a bug before?
+		public static void LoadNullImage() {
+			nullImage = new Bitmap("null.png");
+		}
+		private static Image nullImage;
 		private int refcount = 0;
 		internal int Refcount {
 			get { return refcount; }
@@ -114,7 +138,9 @@ namespace Aesir {
 			}
 		}
 		public override string ToString() { return "{Index:" + index + "}"; }
-		public static Size Size { get { return new Size(Width, Height); } }
+		public static Size Size {
+			get { return new Size(Width, Height); }
+		}
 		public const int Width = 48, Height = 48;
 	}
 	abstract class TileManagerBase {
@@ -133,27 +159,27 @@ namespace Aesir {
 		public static int ReleasePeriod {
 			get { return settings.ReleasePeriod; }
 		}
-		private static Settings.TileManagerBase settings = Settings.TileManagerBase.Default;
+		private static Settings.TileManager settings = Settings.TileManager.Default;
 		protected static readonly Image BlankImage = new Bitmap(Tile.Width, Tile.Height);
 	}
-	class TileManagerException : Exception { }
+	class TileManagerException : Exception { } // TODO: use this?
 	class TileManager<TTile> : TileManagerBase where TTile : Tile, new() {
 		public TileManager(string sourceTag, int sourceCount) {
 			string dataPath = Settings.Global.Default.DataPath;
 			string archivePath = Path.Combine(dataPath, "tile.dat");
-			string paletteCollectionName = sourceTag + "." + PaletteCollection.fileExtension,
+			string paletteCollectionName = sourceTag + "." + PaletteCollection.FileExtension,
 				paletteTableName = sourceTag + "." + PaletteTable.FileExtension;
 			PaletteCollection paletteCollection;
 			PaletteTable paletteTable;
 			using(FileStream archiveStream = new FileStream(archivePath, FileMode.Open)) {
-				ArchiveInfo archive = new ArchiveInfo(archiveStream);
-				archiveStream.Seek(archive.GetFile(paletteCollectionName).Offset, SeekOrigin.Begin);
+				ArchiveHeader archive = new ArchiveHeader(archiveStream);
+				archiveStream.Seek(archive.GetEntry(paletteCollectionName).Offset, SeekOrigin.Begin);
 				paletteCollection = PaletteCollection.FromStream(archiveStream);
-				archiveStream.Seek(archive.GetFile(paletteTableName).Offset, SeekOrigin.Begin);
+				archiveStream.Seek(archive.GetEntry(paletteTableName).Offset, SeekOrigin.Begin);
 				paletteTable = PaletteTable.FromStream(archiveStream);
 			}
 			GraphicLoader.ISourceProvider sourceProvider =
-				new GraphicLoader.SimpleSourceProvider(sourceCount, Path.Combine(dataPath, sourceTag));
+				new GraphicLoader.SourceProvider(sourceCount, Path.Combine(dataPath, sourceTag));
 			graphicLoader = new GraphicLoader(paletteCollection, paletteTable, sourceProvider);
 
 			blankTile = new TTile();
@@ -170,24 +196,46 @@ namespace Aesir {
 		public TileHandle<TTile> GetTile(int index, int priority) {
 			Debug.Assert(index >= 0);
 			lock(syncRoot) {
-				if(tiles.ContainsKey(index)) {
-					if(releasedTiles.Contains(index))
-						releasedTiles.Remove(index);
-					return new TileHandle<TTile>(tiles[index]);
+				{
+					TTile tile;
+					if(tiles.TryGetValue(index, out tile)) {
+						if(releasedTiles.Contains(index))
+							releasedTiles.Remove(index);
+						return new TileHandle<TTile>(tile);
+					}
+				}
+				{
+					LoadingTile loadingTile;
+					if(loadingTiles.TryGetValue(index, out loadingTile)) {
+						taskThread.PromoteTask(loadingTile.task, priority);
+						return new TileHandle<TTile>(loadingTile.tile);
+					}
 				}
 			}
-			TTile tile = new TTile();
-			tile.Index = index;
-			tile.Release += delegate(object sender, EventArgs args) {
+			TTile pendingTile = new TTile();
+			pendingTile.Index = index;
+			EventHandler tile_Release = new EventHandler(delegate(object sender, EventArgs args) {
 				TTile senderTile = (TTile)sender;
-				lock(syncRoot) releasedTiles.Add(senderTile.Index);
-			};
-			lock(syncRoot) tiles.Add(index, tile);
-			taskThread.DoTask(
+				lock(syncRoot) loadingTiles.Remove(senderTile.Index);
+			});
+			EventHandler tile_Load = new EventHandler(delegate(object sender, EventArgs args) {
+				TTile senderTile = (TTile)sender;
+				lock(syncRoot) {
+					loadingTiles.Remove(senderTile.Index);
+					tiles.Add(senderTile.Index, senderTile);
+				}
+				senderTile.Release -= tile_Release;
+				senderTile.Release += delegate(object innerSender, EventArgs innerArgs) {
+					lock(syncRoot) releasedTiles.Add(((TTile)innerSender).Index);
+				};
+			});
+			TaskThread.Task task = taskThread.AddTask(
 				delegate() { return graphicLoader.LoadGraphic(index); },
-				delegate(object args) { tile.Create((Image)args); },
+				delegate(object args) { pendingTile.Create((Image)args); },
 				priority);
-			return new TileHandle<TTile>(tile);
+			LoadingTile pendingLoadingTile = new LoadingTile(task, pendingTile);
+			lock(syncRoot) loadingTiles.Add(pendingTile.Index, pendingLoadingTile);
+			return new TileHandle<TTile>(pendingTile);
 		}
 		protected override void Release() {
 			lock(syncRoot) {
@@ -199,13 +247,26 @@ namespace Aesir {
 			}
 		}
 		private object syncRoot = new Object();
-		private List<int> releasedTiles = new List<int>();
-		public int TileCount { get { return tiles.Count; } }
+		public int TileCount {
+			get { return tiles.Count; }
+		}
 		private readonly TTile blankTile;
 		private readonly TileHandle<TTile> blankTileHandle;
 		private GraphicLoader graphicLoader;
 		private static TileManager<TTile> defaultInstance;
-		public static TileManager<TTile> Default { get { return defaultInstance; } }
+		public static TileManager<TTile> Default {
+			get { return defaultInstance; }
+		}
+		private class LoadingTile {
+			public TaskThread.Task task;
+			public TTile tile;
+			public LoadingTile(TaskThread.Task task, TTile tile) {
+				this.task = task;
+				this.tile = tile;
+			}
+		}
+		private Dictionary<int, LoadingTile> loadingTiles = new Dictionary<int, LoadingTile>();
+		private List<int> releasedTiles = new List<int>();
 		private Dictionary<int, TTile> tiles = new Dictionary<int, TTile>();
 	}
 	class ObjectTile : Tile { }

@@ -7,18 +7,11 @@ using System.Drawing.Imaging;
 using System.Diagnostics;
 
 namespace Aesir.Nexus {
-	/// <summary>
-	/// Information about a graphic, such as the width, the height, the palette, and the offset to
-	/// the actual graphic data.
-	/// </summary>
 	/// <remarks>
-	/// In every EPF file there is an array of GraphicInfo structures. The offset of this array is
-	/// specified by <c>GraphicCollectionHeader.InfoOffset</c>.
+	///		In every EPF file there is an array of <c>GraphicInfo</c> structures. The offset of
+	///		this array is specified by <c>GraphicCollectionHeader.InfoOffset</c>.
 	/// </remarks>
 	class GraphicInfo {
-		/// <summary>
-		/// Read GraphicInfo data from the stream.
-		/// </summary>
 		public static GraphicInfo FromStream(Stream stream) {
 			BinaryReader binaryReader = new BinaryReader(stream);
 			GraphicInfo info = new GraphicInfo();
@@ -35,41 +28,54 @@ namespace Aesir.Nexus {
 			info.dataOffset = startOffset;
 			return info;
 		}
-		/// <summary>The size of this structure as it is stored in an EPF file, in bytes.</summary>
+		/// The size of this structure as it is stored in an EPF file, in bytes
 		public const int DataSize = 16;
-		public int Width { get { return width; } }
-		public int Height { get { return height; } }
-		public int DataOffset { get { return dataOffset; } }
+		public int Width {
+			get { return width; }
+		}
+		public int Height {
+			get { return height; }
+		}
+		/// <summary>
+		///		The offset to the actual graphic data, specified relative to the end of the EPF
+		///		header.
+		/// </summary>
+		public int DataOffset {
+			get { return dataOffset; }
+		}
 		private int dataOffset, width, height;
 		public ushort left, top, right, bottom;
 	}
 	/// <summary>
-	/// The header of an EPF file. An EPF file contains graphic data such as tiles.
+	///		The header of an EPF file.
 	/// </summary>
 	class GraphicCollectionHeader {
-		private ushort tileCount;
+		private ushort graphicCount;
 		private int infoOffset;
 		/// <summary>
-		/// The offset, specified relative to the end of the EPF header, to the array of
-		/// GraphicInfo structures stored in this EPF file.
+		///		The offset, specified relative to the end of the EPF header, to the array of
+		///		<c>GraphicInfo</c> structures stored in this EPF file.
 		/// </summary>
-		public int InfoOffset { get { return infoOffset; } }
-		/// <summary>The number of tiles stored in this EPF file.</summary>
-		public ushort TileCount { get { return tileCount; } }
+		public int InfoOffset {
+			get { return infoOffset; }
+		}
+		public ushort GraphicCount {
+			get { return graphicCount; }
+		}
 		public static GraphicCollectionHeader FromStream(Stream stream) {
 			BinaryReader binaryReader = new BinaryReader(stream);
 			GraphicCollectionHeader header = new GraphicCollectionHeader();
-			header.tileCount = binaryReader.ReadUInt16();
+			header.graphicCount = binaryReader.ReadUInt16();
 			stream.Seek(6, SeekOrigin.Current); // Skip over unknown bytes
 			header.infoOffset = (int)binaryReader.ReadUInt32();
 			return header;
 		}
-		/// <summary>The size of this structure as it is stored in an EPF file, in bytes.</summary>
+		// The size of this structure as it is stored in an EPF file, in bytes
 		public const int DataSize = 12;
 	}
 	class GraphicLoader {
 		/// <summary>
-		/// A graphic loader will usually gather its graphics from several EPF files, which are
+		/// A graphic loader will usually load its graphics from several EPF files, which are
 		/// usually stored in archives. These EPF files are called sources. This interface provides
 		/// sources to clients.
 		/// </summary>
@@ -81,30 +87,35 @@ namespace Aesir.Nexus {
 		///		This concrete source provider provides sources that are stored within an archive
 		///		and numbered sequentially. For example, tiles are stored in a series of archives
 		///		tile0.dat, tile1.dat, etc. Within these archives are the EPF files tile0.epf,
-		///		tile1.epf, etc. In this case, the <c>PathPrefix</c> would be "tile".
+		///		tile1.epf, etc. In this case, the <c>SourceTag</c> would be "tile".
 		/// </summary>
-		public class SimpleSourceProvider : ISourceProvider {
-			public SimpleSourceProvider(int sourceCount, string sourceTag) {
+		public class SourceProvider : ISourceProvider {
+			public SourceProvider(int sourceCount, string sourceTag) {
 				this.sourceCount = sourceCount;
 				this.sourceTag = sourceTag;
 			}
 			private string sourceTag;
-			public string SourceTag { get { return sourceTag; } }
+			public string SourceTag {
+				get { return sourceTag; }
+			}
 			private int sourceCount;
-			public int SourceCount { get { return sourceCount; } }
+			public int SourceCount {
+				get { return sourceCount; }
+			}
 			public Stream GetSourceStream(int index) {
 				Debug.Assert(index < sourceCount);
 				string path = string.Format("{0}{1}.dat", sourceTag, index);
 				FileStream stream = new FileStream(path, FileMode.Open);
-				ArchiveInfo archive = new ArchiveInfo(stream);
-				string graphicFileName = Path.GetFileNameWithoutExtension(path) + ".epf";
-				stream.Seek(archive.GetFile(graphicFileName).Offset, SeekOrigin.Begin);
+				ArchiveHeader archive = new ArchiveHeader(stream);
+				string entryName = Path.GetFileNameWithoutExtension(path) + ".epf";
+				// TODO: Throw an exception if the entry is null?
+				stream.Seek(archive.GetEntry(entryName).Offset, SeekOrigin.Begin);
 				return stream;
 			}
 		}
-		public GraphicLoader(IPaletteProvider paletteProvider, PaletteTable paletteTable,
+		public GraphicLoader(PaletteCollection paletteCollection, PaletteTable paletteTable,
 			ISourceProvider sourceProvider) {
-			this.paletteProvider = paletteProvider;
+			this.paletteCollection = paletteCollection;
 			this.paletteTable = paletteTable;
 			this.sourceProvider = sourceProvider;
 			// Precache the EPF header information
@@ -116,10 +127,10 @@ namespace Aesir.Nexus {
 		}
 		private GraphicCollectionHeader[] sourceHeaders;
 		private ISourceProvider sourceProvider;
-		private IPaletteProvider paletteProvider;
+		private PaletteCollection paletteCollection;
 		private PaletteTable paletteTable;
 		/// <remarks>
-		/// The resultant image will always be <c>Graphic.width</c> by <c>Graphic.height</c>, and
+		/// The resultant image will always be <c>Graphic.Width</c> by <c>Graphic.Height</c>, and
 		/// may contain transparency information in the case of object tiles.
 		/// </remarks>
 		public Image LoadGraphic(int index) {
@@ -133,23 +144,25 @@ namespace Aesir.Nexus {
 			GraphicCollectionHeader sourceHeader = sourceHeaders[0];
 			int baseIndex = 0, sourceIndex = 0;
 			while(true) {
-				if(index < (baseIndex + sourceHeader.TileCount)) break;
-				baseIndex += sourceHeader.TileCount;
+				if(index < (baseIndex + sourceHeader.GraphicCount)) break;
+				baseIndex += sourceHeader.GraphicCount;
 				sourceHeader = sourceHeaders[++sourceIndex];
 			}
 			int localIndex = index - baseIndex;
 			using(Stream sourceStream = sourceProvider.GetSourceStream(sourceIndex)) {
 				// Skip over the EPF header; offsets are relative to the end of the header
 				sourceStream.Seek(GraphicCollectionHeader.DataSize, SeekOrigin.Current);
+				// Save the offset that points to the data after the header
 				int baseOffset = (int)sourceStream.Position;
+				// Seek to the GraphicInfo structure and read it in
 				int infoOffset = sourceHeader.InfoOffset + (GraphicInfo.DataSize * localIndex);
 				sourceStream.Seek(infoOffset, SeekOrigin.Current);
 				GraphicInfo info = GraphicInfo.FromStream(sourceStream);
-				sourceStream.Seek(baseOffset, SeekOrigin.Begin);
-				sourceStream.Seek(info.DataOffset, SeekOrigin.Current);
-				int paletteIndex = paletteTable[index];
-				Palette palette = paletteProvider.GetPalette(paletteIndex);
+				// Seek to the actual graphic data
+				sourceStream.Seek(baseOffset + info.DataOffset, SeekOrigin.Begin);
+				Palette palette = paletteCollection[paletteTable[index]];
 
+				// Read the graphic data
 				BinaryReader binaryReader = new BinaryReader(sourceStream);
 				if(index == 0) return bitmap;
 				for(int y = 0; y < info.Height; ++y) {

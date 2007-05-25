@@ -30,6 +30,9 @@ namespace Aesir.Util {
 		}
 		private int x;
 		private int y;
+		public static Vector Abs(Vector vector) {
+			return new Vector(Math.Abs(vector.x), Math.Abs(vector.y));
+		}
 		public static Vector Sign(Vector vector) {
 			return new Vector(Math.Sign(vector.x), Math.Sign(vector.y));
 		}

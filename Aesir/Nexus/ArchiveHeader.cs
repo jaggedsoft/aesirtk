@@ -5,23 +5,29 @@ using System.IO;
 
 namespace Aesir.Nexus {
 	/// <summary>
-	/// Information about a Nexus archive. Nexus stores graphics data in simple uncompressed
-	/// archives, which are usually located in the data directory of your NexusTK installation.
+	///		Information about a Nexus archive. Nexus stores graphics data in simple uncompressed
+	///		files, which have the file extension DAT.
 	/// </summary>
 	/// <remarks>
-	/// Use the <c>ArchiveInfo.GetEntry</c> method to get a file entry, and then use the
-	/// <c>ArchiveInfo.Entry.Offset</c> property to determine where to seek to find the file data.
+	///		Use the <c>ArchiveHeader.GetEntry</c> method to get a file entry, and then use the
+	///		<c>ArchiveHeader.Entry.Offset</c> property to determine where to seek to find the file data.
 	/// </remarks>
-	class ArchiveInfo {
+	class ArchiveHeader {
 		public class Entry {
 			private int offset;
-			/// <summary>The absolute offset to find this file in the archive.</summary>
-			public int Offset { get { return offset; } }
+			/// <summary>
+			///		The absolute offset to this file in the archive file.
+			///	</summary>
+			public int Offset {
+				get { return offset; }
+			}
 			internal Entry(int offset) { this.offset = offset; }
 		}
 		private Dictionary<string, Entry> entries;
-		public ICollection<string> EntryNames { get { return entries.Keys; } }
-		public Entry GetFile(string targetEntryName) {
+		public ICollection<string> EntryNames {
+			get { return entries.Keys; }
+		}
+		public Entry GetEntry(string targetEntryName) {
 			if(entries == null) throw new InvalidOperationException();
 			foreach(string entryName in entries.Keys) {
 				if(entryName.ToLower() == targetEntryName.ToLower())
@@ -29,7 +35,6 @@ namespace Aesir.Nexus {
 			}
 			return null;
 		}
-		/// <summary>Read the archive header from the data stream.</summary>
 		public void Read(Stream stream) {
 			BinaryReader binaryReader = new BinaryReader(stream);
 			entries = new Dictionary<string, Entry>();
@@ -46,12 +51,12 @@ namespace Aesir.Nexus {
 				entries.Add(name, new Entry(offset));
 			}
 		}
-		public ArchiveInfo() { }
-		public ArchiveInfo(string path) {
+		public ArchiveHeader() { }
+		public ArchiveHeader(string path) {
 			using(FileStream stream = new FileStream(path, FileMode.Open))
 				Read(stream);
 		}
-		public ArchiveInfo(Stream stream) {
+		public ArchiveHeader(Stream stream) {
 			Read(stream);
 		}
 	}

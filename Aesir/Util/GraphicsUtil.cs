@@ -6,7 +6,7 @@ using System.Drawing.Imaging;
 
 namespace Aesir.Util {
 	static class GraphicsUtil {
-		public static void DrawInvertedImage(Graphics graphics, Image image, Point point) {
+		public static void DrawImageInverted(Graphics graphics, Image image, Point point) {
 			ImageAttributes imageAttributes = new ImageAttributes();
 			ColorMatrix colorMatrix = new ColorMatrix();
 			colorMatrix.Matrix00 = colorMatrix.Matrix11 = colorMatrix.Matrix22 = -1;

@@ -13,13 +13,20 @@ using System.Configuration;
 namespace Aesir {
 	class Program {
 		private static MainForm mainForm;
-		public static MainForm MainForm { get { return mainForm; } }
+		public static MainForm MainForm {
+			get { return mainForm; }
+		}
 		private static FloorTileManager floorTileManager;
-		public static FloorTileManager FloorTileManager { get { return floorTileManager; } }
+		public static FloorTileManager FloorTileManager {
+			get { return floorTileManager; }
+		}
 		private static ObjectTileManager objectTileManager;
-		public static ObjectTileManager ObjectTileManager { get { return objectTileManager; } }
+		public static ObjectTileManager ObjectTileManager {
+			get { return objectTileManager; }
+		}
 		[STAThread()]
 		static void Main(string[] args) {
+			Tile.LoadNullImage();
 			try {
 				floorTileManager = new FloorTileManager();
 				objectTileManager = new ObjectTileManager();

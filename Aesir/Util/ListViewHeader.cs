@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using System.Runtime.InteropServices;
 
 namespace Aesir.Util {
+	// Code adapted from http://www.codeproject.com/cs/miscctrl/myListViewNoSize.asp by Chris Morgan
 	class ListViewHeader : NativeWindow {
 		[DllImport("user32.dll")]
 		private static extern IntPtr GetWindow(IntPtr windowHandle, uint command);
@@ -17,7 +18,10 @@ namespace Aesir.Util {
 			};
 		}
 		private bool allowResizeColumns = true;
-		public bool AllowResizeColumns { set { allowResizeColumns = value; } }
+		public bool AllowResizeColumns {
+			set { allowResizeColumns = value; }
+			get { return allowResizeColumns; }
+		}
 		~ListViewHeader() { ReleaseHandle(); }
 		protected override void WndProc(ref Message message) {
 			if(!allowResizeColumns) {

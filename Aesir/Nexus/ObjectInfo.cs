@@ -7,9 +7,15 @@ namespace Aesir.Nexus {
 	class ObjectInfo {
 		private int height;
 		private int[] indices;
-		/// <value>The height of this object slice, in tiles.</value>
-		public int Height { get { return height; } }
-		public int[] Indices { get { return indices; } }
+		/// <value>
+		///		The height of this object slice, in tiles.
+		///	</value>
+		public int Height {
+			get { return height; }
+		}
+		public int[] Indices {
+			get { return indices; }
+		}
 		public static ObjectInfo[] ReadCollection(Stream stream) {
 			BinaryReader binaryReader = new BinaryReader(stream);
 			int count = (int)binaryReader.ReadUInt16();

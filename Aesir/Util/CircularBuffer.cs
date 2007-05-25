@@ -40,7 +40,9 @@ namespace Aesir.Util {
 			for(int index = buffer.Count; index < count; ++index)
 				buffer.Add(Create(index, state));
 		}
-		public int Count { get { return buffer.Count; } }
+		public int Count {
+			get { return buffer.Count; }
+		}
 		private int headIndex;
 		private List<T> buffer = new List<T>();
 		#region IEnumerable members

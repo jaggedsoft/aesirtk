@@ -8,21 +8,21 @@ using Aesir.Nexus;
 using Aesir.Util;
 
 namespace Aesir {
-	class MapViewPanel : Panel {
+	class MapView : Panel {
 		private delegate void RefreshDelegate();
-		public MapViewPanel(MainForm mainForm) {
+		public MapView(MainForm mainForm) {
 			DoubleBuffered = true;
-			/*for(int y = 0; y < 40; ++y) {
+			RefreshDelegate refreshDelegate = new RefreshDelegate(delegate() { Refresh(); });
+			for(int y = 0; y < 40; ++y) {
 				for(int x = 0; x < 40; ++x) {
-					FloorTile tile = FloorTileManager.Default.GetTile(x + y * 40);
-					map.SetFloorTile(x, y, tile);
-					tile.Load += delegate(object sender, EventArgs args) {
+					TileHandle<FloorTile> floorTile = FloorTileManager.Default.GetTile(x + y * 40, 1);
+					mapDocument[x, y].FloorTile = floorTile;
+					floorTile.Load += delegate(object sender, EventArgs args) {
 						if(!IsHandleCreated) return;
-						RefreshDelegate refreshDelegate = new RefreshDelegate(delegate() { Refresh(); });
 						Invoke(refreshDelegate);
 					};
 				}
-			}*/
+			}
 			mainForm.MouseWheel += new MouseEventHandler(mainForm_MouseWheel);
 			camera = new Camera(this);
 		}
@@ -34,9 +34,13 @@ namespace Aesir {
 			base.OnPaint(args);
 			GraphicsState savedState = args.Graphics.Save();
 			camera.Apply(args.Graphics);
-			map.AcceptVisitor(delegate(Vector point, FloorTile floorTile, ObjectTile objectTile) {
-				if(floorTile != null)
-					floorTile.Draw(args.Graphics, (Point)(point * (Vector)Tile.Size));
+			mapDocument.AcceptVisitor(delegate(Vector point, TileCell cell) {
+				if(cell.FloorTile != null) {
+					lock(cell.FloorTile.SyncRoot) {
+						Point imagePoint = (Point)(point * (Vector)Tile.Size);
+						args.Graphics.DrawImage(cell.FloorTile.Image, imagePoint);
+					}
+				}
 			});
 			args.Graphics.Restore(savedState);
 		}
@@ -102,19 +106,21 @@ namespace Aesir {
 				graphics.TranslateTransform(translate.X, translate.Y, MatrixOrder.Append);
 			}
 			private Vector center;
-			public Camera(MapViewPanel mapPanel) {
+			public Camera(MapView mapPanel) {
 				this.mapPanel = mapPanel;
 				mapPanel.Resize += delegate(object sender, EventArgs args) {
 					center = new Vector(mapPanel.Width / 2, mapPanel.Height / 2); };
 			}
-			private MapViewPanel mapPanel;
+			private MapView mapPanel;
 		}
 		protected override void OnResize(EventArgs args) {
 			base.OnResize(args);
 			Refresh();
 		}
 		private Camera camera;
-		private MapDocument map = new MapDocument();
-		public MapDocument Map { get { return map; } }
+		private MapDocument mapDocument = new MapDocument();
+		public MapDocument MapDocument {
+			get { return mapDocument; }
+		}
 	}
 }

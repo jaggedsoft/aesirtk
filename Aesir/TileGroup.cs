@@ -1,21 +1,52 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Diagnostics;
 
 namespace Aesir {
-	class TileGroup<TTile> : IDisposable where TTile : Tile {
-		public bool Contains(TileHandle<TTile> targetHandle) {
-			foreach(TileHandle<TTile> handle in buffer) {
-				if(targetHandle == handle) return true;
+	class TileCell : IDisposable {
+		private TileHandle<FloorTile> floorTile;
+		private TileHandle<ObjectTile> objectTile;
+		public TileHandle<FloorTile> FloorTile {
+			set { floorTile = value; }
+			get { return floorTile; }
+		}
+		public TileHandle<ObjectTile> ObjectTile {
+			get { return objectTile; }
+			set { objectTile = value; }
+		}
+		public TTile GetTile<TTile>() where TTile : Tile {
+			if(typeof(TTile) == typeof(FloorTile)) return (TTile)FloorTile;
+			else if(typeof(TTile) == typeof(ObjectTile)) return (TTile)ObjectTile;
+			Debug.Fail("Called TileCell.GetHandle with an invalid type parameter");
+			return null;
+		}
+		public void Dispose() { /* TODO */ }
+		public TileCell() {
+			floorTile = null;
+			objectTile = null;
+		}
+		public TileCell(TileHandle<FloorTile> floorTile, TileHandle<ObjectTile> objectTile) {
+			this.floorTile = floorTile;
+			this.objectTile = objectTile;
+		}
+	}
+	class TileGroup : IDisposable {
+		public bool Contains<TTile>(TileHandle<TTile> target) where TTile : Tile {
+			foreach(TileCell cell in buffer) {
+				TTile tile = cell.GetTile<TTile>();
+				if(tile != null && tile.Index == ((TTile)target).Index) return true;
 			}
 			return false;
 		}
-		public TileGroup(TileHandle<TTile>[,] buffer) {
-			this.buffer = new TileHandle<TTile>[buffer.GetLength(0), buffer.GetLength(1)];
-			for(int y = 0; y < buffer.GetLength(1); ++y) {
-				for(int x = 0; x < buffer.GetLength(0); ++x)
-					this.buffer[x, y] = (TileHandle<TTile>)buffer[x, y].Clone();
-			}
+		public TileGroup(int width, int height) {
+			buffer = new TileCell[width, height];
+		}
+		public int Width {
+			get { return buffer.GetLength(0); }
+		}
+		public int Height {
+			get { return buffer.GetLength(1); }
 		}
 		public void Dispose() {
 			Dispose(true);
@@ -23,13 +54,12 @@ namespace Aesir {
 		}
 		~TileGroup() { Dispose(false); }
 		protected virtual void Dispose(bool disposing) {
-			foreach(TileHandle<TTile> handle in buffer)
-				handle.Dispose();
+			foreach(TileCell cell in buffer)
+				cell.Dispose();
 		}
-		public TileHandle<TTile> this[int x, int y] {
+		public TileCell this[int x, int y] {
 			get { return buffer[x, y]; }
-			set { buffer[x, y] = value; }
 		}
-		private TileHandle<TTile>[,] buffer;
+		private TileCell[,] buffer;
 	}
 }

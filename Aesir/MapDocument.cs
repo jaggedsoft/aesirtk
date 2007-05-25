@@ -8,73 +8,83 @@ using Aesir.Util;
 using Aesir.Nexus;
 
 namespace Aesir {
-	abstract class MapFileFormat {
+	/* TODO abstract class MapFileFormat {
 		public MapFileFormat() { fileFormats.Add(this); }
-		public static ICollection<MapFileFormat> FileFormats { get { return fileFormats; } }
-		private static List<MapFileFormat> fileFormats = new List<MapFileFormat>();
-		public virtual void Export(string fileName) { }
-		public virtual void Import(string fileName) { }
-		public virtual bool CanExport(string fileName) { return false; }
-		public virtual bool CanImport(string fileName) { return false; }
-	}
-	class MapDocument {
-		public delegate void Visitor(Vector point, FloorTile floorTile, ObjectTile objectTile);
-		private struct Cell {
-			public FloorTile floorTile;
-			public ObjectTile objectTile;
-			public Cell(FloorTile floorTile, ObjectTile objectTile) {
-				this.floorTile = floorTile;
-				this.objectTile = objectTile;
-			}
-			public static readonly Cell Empty = new Cell(null, null);
+		public static ICollection<MapFileFormat> FileFormats {
+			get { return fileFormats; }
 		}
+		private static List<MapFileFormat> fileFormats = new List<MapFileFormat>();
+		public virtual void Export(string path) { }
+		public virtual void Import(string path) { }
+	}*/
+	class MapDocument {
+		public delegate void Visitor(Vector tileLocation, TileCell cell);
 		private class Section {
-			private Cell[,] cells = new Cell[Size, Size];
-			public Cell[,] Cells { get { return cells; } }
+			private TileCell[,] cells = new TileCell[Size, Size];
+			public TileCell[,] Cells {
+				get { return cells; }
+			}
 			public override string ToString() {
 				return "Offset:" + offset.ToString();
 			}
-			public Vector AbsoluteToRelative(Vector point) { return point - (offset * Size); }
-			public Vector RelativeToAbsolute(Vector point) { return point + (offset * Size); }
-			/// <param name="area">The area rectangle, in absolute tile coordinates.</param>
+			public Vector ToRelative(Vector absolutePoint) {
+				return absolutePoint - (offset * Size);
+			}
+			public Vector ToAbsolute(Vector relativePoint) {
+				return relativePoint + (offset * Size);
+			}
 			public void AcceptVisitorInArea(Visitor visitor, Rectangle area) { }
 			public void AcceptVisitor(Visitor visitor) {
 				for(int y = 0; y < Size; ++y) {
-					for(int x = 0; x < Size; ++x) {
-						Cell cell = cells[x, y];
-						Vector point = RelativeToAbsolute(new Vector(x, y));
-						visitor(point, cell.floorTile, cell.objectTile);
-					}
+					for(int x = 0; x < Size; ++x)
+						visitor(ToAbsolute(new Vector(x, y)), cells[x, y]);
 				}
 			}
-			/// <remarks>
-			/// The offset is specified in sections; that is, to get the offset in terms of tiles,
-			/// do offset * <c>Section.Size</c>.
-			/// </remarks>
-			public Vector Offset { get { return offset; } }
+			public Vector Offset {
+				get { return offset; }
+			}
 			private Vector offset;
 			public Section(Vector offset) {
 				this.offset = offset;
+				for(int y = 0; y < Size; ++y) {
+					for(int x = 0; x < Size; ++x)
+						cells[x, y] = new TileCell();
+				}
 			}
 			public const int Size = 5;
 		}
 		private Section center = new Section(new Vector(0, 0));
 		Vector centerIndex = new Vector(0, 0);
 		private Section[,] sections = new Section[1, 1];
+		public int SectionWidth {
+			get { return sections.GetLength(0); }
+		}
+		public int SectionHeight {
+			get { return sections.GetLength(1); }
+		}
 		public MapDocument() {
 			sections[0, 0] = center;
 		}
 		/// <summary>
-		/// This function will expand the map in a certain direction, resizing the <c>sections</c>
-		/// array and modifying <c>centerIndex</c>.
+		///		This function will expand the map in a certain direction, resizing the <c>sections</c>
+		///		array and modifying <c>centerIndex</c>.
 		/// </summary>
 		/// <param name="shift">
-		/// A vector representing the direction to expand the map in. For example, if this vector
-		/// is (1, 0), the map will be expanded horizontally to the right.
+		///		A vector representing the direction to expand the map in. For example, if this vector
+		///		is (1, 0), the map will be expanded horizontally to the right.
 		/// </param>
+		/// <remarks>
+		///		If any element of the shift vector is negative (that is, if you are expanding upwards
+		///		or to the left), the <c>sections</c> array will be shifted in the opposite direction
+		///		to make room for the new row or column. The <c>centerIndex</c> will be modified to
+		///		accomodate this change.
+		/// </remarks>
+		/// <returns>
+		///		The amount the <c>sections</c> array was shifted.
+		/// </returns>
 		private Vector Expand(Vector shift) {
 			Section[,] oldSections = sections;
-			int oldWidth = oldSections.GetLength(0), oldHeight = oldSections.GetLength(1);
+			int oldWidth = SectionWidth, oldHeight = SectionHeight;
 			sections = new Section[oldWidth + Math.Abs(shift.X), oldHeight + Math.Abs(shift.Y)];
 			Vector translate = new Vector();
 			if(shift.X < 0) translate.X = shift.X;
@@ -87,17 +97,22 @@ namespace Aesir {
 			return translate;
 		}
 		/// <summary>
-		/// If the provided index is invalid (for example, if a component is negative), this
-		/// function will expand the map so that it encompasses the index, and then return
-		/// a new, valid index.
+		///		If the provided index is invalid (for example, if a component is negative), this
+		///		function will expand the map so that it encompasses the index, and then return a
+		///		new, valid index. This function will also initialize the section at the sepcified
+		///		index if that section has not yet been initialized.
 		/// </summary>
-		private Vector EnsureIndex(Vector index) {
+		/// <param name="index">
+		///		The index into the <c>sections</c> array to be validated.
+		/// </param>
+		/// <returns>
+		///		An index into the <c>sections</c> array that is valid.
+		/// </returns>
+		private Vector ValidateIndex(Vector index) {
 			Vector shift = new Vector();
-			if(index.X >= sections.GetLength(0))
-				shift += new Vector(index.X - sections.GetLength(0) + 1, 0);
+			if(index.X >= SectionWidth) shift += new Vector(index.X - SectionWidth + 1, 0);
 			else if(index.X < 0) shift += new Vector(-index.X, 0);
-			if(index.Y >= sections.GetLength(1))
-				shift += new Vector(0, index.Y - sections.GetLength(1) + 1);
+			if(index.Y >= SectionHeight) shift += new Vector(0, index.Y - SectionHeight + 1);
 			else if(index.Y < 0) shift += new Vector(0, -index.Y);
 			Vector translate = Expand(shift);
 			index += translate;
@@ -106,43 +121,32 @@ namespace Aesir {
 			return index;
 		}
 		private bool IsValidIndex(Vector index) {
-			return (index.X >= 0 && index.X < sections.GetLength(0)) &&
-				(index.Y >= 0 && index.Y < sections.GetLength(1));
+			return (index.X >= 0 && index.X < SectionWidth) &&
+				(index.Y >= 0 && index.Y < SectionHeight);
 		}
 		private Vector GetOffsetFromIndex(Vector index) { return index - centerIndex; }
-		private Vector GetIndexFromOffset(Vector offset) { return offset + centerIndex; }
+		private Vector GetIndexFromOffset(Vector index) { return index + centerIndex; }
 		private Vector GetIndexFromPoint(Vector point) {
 			return GetIndexFromOffset(point / Section.Size);
 		}
 		private Section GetSectionFromPoint(Vector point) {
-			Vector index = EnsureIndex(GetIndexFromPoint(point));
+			Vector index = ValidateIndex(GetIndexFromPoint(point));
 			return sections[index.X, index.Y];
 		}
 		public void AcceptVisitorInArea(Visitor visitor, Rectangle area) { }
 		public void AcceptVisitor(Visitor visitor) {
-			for(int y = 0; y < sections.GetLength(1); ++y) {
-				for(int x = 0; x < sections.GetLength(0); ++x) {
+			for(int y = 0; y < SectionHeight; ++y) {
+				for(int x = 0; x < SectionWidth; ++x)
 					sections[x, y].AcceptVisitor(visitor);
-				}
 			}
 		}
-		delegate void CellPredicate(ref Cell cell);
-		private void GetCell(int x, int y, CellPredicate predicate) {
-			Vector point = new Vector(x, y);
-			Section section = GetSectionFromPoint(point);
-			Vector relativePoint = section.AbsoluteToRelative(point);
-			predicate(ref section.Cells[relativePoint.X, relativePoint.Y]);
-		}
-		private Cell GetCell(int x, int y) {
-			Cell resultCell = Cell.Empty;
-			GetCell(x, y, delegate(ref Cell cell) { resultCell = cell; });
-			return resultCell;
-		}
-		public void SetFloorTile(int x, int y, FloorTile floorTile) {
-			GetCell(x, y, delegate(ref Cell cell) { cell.floorTile = floorTile; });
-		}
-		public void SetObjectTile(int x, int y, ObjectTile objectTile) {
-			GetCell(x, y, delegate(ref Cell cell) { cell.objectTile = objectTile; });
+		public TileCell this[int x, int y] {
+			get {
+				Vector point = new Vector(x, y);
+				Section section = GetSectionFromPoint(point);
+				Vector relativePoint = section.ToRelative(point);
+				return section.Cells[relativePoint.X, relativePoint.Y];
+			}
 		}
 	}
 }

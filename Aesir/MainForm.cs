@@ -8,9 +8,9 @@ using System.Configuration;
 namespace Aesir {
 	class MainForm : Form {
 		public MainForm() {
-			graphicBrowserForm = new GraphicBrowserForm();
-			mapPanel = new MapViewPanel(this);
-			Controls.Add(mapPanel);
+			graphicBrowserForm = new GraphicBrowser();
+			mapView = new MapView(this);
+			Controls.Add(mapView);
 			Text = "Aesir";
 			DataBindings.Add(new Binding("Size", settings, "FormSize", true,
 				DataSourceUpdateMode.OnPropertyChanged));
@@ -34,16 +34,18 @@ namespace Aesir {
 			graphicBrowserForm.Show();
 			graphicBrowserForm.Focus(); // TEMP
 		}
-		private GraphicBrowserForm graphicBrowserForm;
+		private GraphicBrowser graphicBrowserForm;
 		private StatusBar statusBar = new StatusBar();
 		protected override void OnLayout(LayoutEventArgs args) {
 			base.OnLayout(args);
-			mapPanel.Location = new Point(0, 0);
-			mapPanel.Size = ClientRectangle.Size - new Size(0, statusBar.Height);
+			mapView.Location = new Point(0, 0);
+			mapView.Size = ClientRectangle.Size - new Size(0, statusBar.Height);
 		}
 		private Settings.MainForm settings = Settings.MainForm.Default;
-		public MapViewPanel MapPanel { get { return mapPanel; } }
-		private MapViewPanel mapPanel;
+		public MapView MapView {
+			get { return mapView; }
+		}
+		private MapView mapView;
 		protected override void OnFormClosing(FormClosingEventArgs args) {
 			graphicBrowserForm.Close();
 			settings.Save();

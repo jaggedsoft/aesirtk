@@ -5,10 +5,12 @@
     <ProductVersion>8.0.50727</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{52D196D4-4E9F-42B0-9729-08D3601476E2}</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Aesir</RootNamespace>
     <AssemblyName>Aesir</AssemblyName>
+    <StartupObject>
+    </StartupObject>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -38,22 +40,23 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="MapController.cs" />
     <Compile Include="Settings\Global.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Global.settings</DependentUpon>
     </Compile>
-    <Compile Include="Settings\GraphicBrowserForm.Designer.cs">
+    <Compile Include="Settings\GraphicBrowser.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
-      <DependentUpon>GraphicBrowserForm.settings</DependentUpon>
+      <DependentUpon>GraphicBrowser.settings</DependentUpon>
     </Compile>
     <Compile Include="Settings\MainForm.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>MainForm.settings</DependentUpon>
     </Compile>
-    <Compile Include="MapViewPanel.cs">
+    <Compile Include="MapView.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="MainForm.cs">
@@ -61,14 +64,14 @@
     </Compile>
     <Compile Include="MapDocument.cs">
     </Compile>
-    <Compile Include="Nexus\ArchiveInfo.cs" />
-    <Compile Include="Nexus\Graphic.cs" />
+    <Compile Include="Nexus\ArchiveHeader.cs" />
+    <Compile Include="Nexus\GraphicLoader.cs" />
     <Compile Include="Nexus\ObjectInfo.cs" />
     <Compile Include="Nexus\Palette.cs" />
-    <Compile Include="Settings\TileManagerBase.Designer.cs">
+    <Compile Include="Settings\TileManager.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
-      <DependentUpon>TileManagerBase.settings</DependentUpon>
+      <DependentUpon>TileManager.settings</DependentUpon>
     </Compile>
     <Compile Include="TileGroup.cs" />
     <Compile Include="Util\GraphicsUtil.cs" />
@@ -76,7 +79,7 @@
     <Compile Include="Util\PriorityQueue.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="GraphicBrowserForm.cs">
+    <Compile Include="GraphicBrowser.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="TileManager.cs" />
@@ -92,17 +95,17 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Global.Designer.cs</LastGenOutput>
     </None>
-    <None Include="Settings\GraphicBrowserForm.settings">
+    <None Include="Settings\GraphicBrowser.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
-      <LastGenOutput>GraphicBrowserForm.Designer.cs</LastGenOutput>
+      <LastGenOutput>GraphicBrowser.Designer.cs</LastGenOutput>
     </None>
     <None Include="Settings\MainForm.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>MainForm.Designer.cs</LastGenOutput>
     </None>
-    <None Include="Settings\TileManagerBase.settings">
+    <None Include="Settings\TileManager.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
-      <LastGenOutput>TileManagerBase.Designer.cs</LastGenOutput>
+      <LastGenOutput>TileManager.Designer.cs</LastGenOutput>
     </None>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />

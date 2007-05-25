@@ -4,21 +4,23 @@ using System.Text;
 using System.ComponentModel;
 
 namespace Aesir.Util {
-	// TODO: Implement priorities and stuff!
 	class TaskThread {
 		public delegate object TaskRun();
 		public delegate void TaskCompleted(object args);
-		private class Task : IComparable {
-			public TaskRun taskRun;
-			public TaskCompleted taskCompleted;
-			public int priority;
-			public Task(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
+		public class Task : IComparable {
+			internal TaskRun taskRun;
+			internal TaskCompleted taskCompleted;
+			internal int priority;
+			internal Task(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
 				this.taskRun = taskRun;
 				this.taskCompleted = taskCompleted;
 				this.priority = priority;
 			}
 			public int CompareTo(object obj) {
 				return priority.CompareTo(((Task)obj).priority);
+			}
+			public override string ToString() {
+				return "{Priority:" + priority + "}";
 			}
 		}
 		private class TaskResult {
@@ -33,22 +35,29 @@ namespace Aesir.Util {
 			thread.RunWorkerCompleted +=new RunWorkerCompletedEventHandler(thread_RunWorkerCompleted);
 			thread.DoWork += new DoWorkEventHandler(thread_DoWork);
 		}
-		public void DoTask(TaskRun taskRun, TaskCompleted taskCompleted) {
-			DoTask(taskRun, taskCompleted, 0);
+		public void AddTask(TaskRun taskRun, TaskCompleted taskCompleted) {
+			AddTask(taskRun, taskCompleted, 0);
 		}
-		public void DoTask(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
+		public Task AddTask(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
 			Task task = new Task(taskRun, taskCompleted, priority);
 			tasks.Push(task);
-			UpdateThread();
+			UpdateBackgroundWorker();
+			return task;
 		}
-		private void UpdateThread() {
+		public void PromoteTask(Task task, int priority) {
+			if(priority > task.priority) return;
+			tasks.Remove(task);
+			task.priority = priority;
+			tasks.Push(task);
+		}
+		private void UpdateBackgroundWorker() {
 			if(!thread.IsBusy && tasks.Count > 0)
 				thread.RunWorkerAsync(tasks.Pop());
 		}
 		private void thread_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs args) {
 			TaskResult taskResult = (TaskResult)args.Result;
 			taskResult.task.taskCompleted(taskResult.result);
-			UpdateThread();
+			UpdateBackgroundWorker();
 		}
 		private void thread_DoWork(object sender, DoWorkEventArgs args) {
 			Task task = (Task)args.Argument;

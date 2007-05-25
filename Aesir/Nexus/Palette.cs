@@ -9,15 +9,9 @@ namespace Aesir.Nexus {
 		public PaletteException(string message) : base(message) { }
 	}
 	/// <summary>
-	/// A palette provider allows you to retrieve a palette by its numerical index.
+	///		A collection of palettes, as stored in a PAL file.
 	/// </summary>
-	interface IPaletteProvider {
-		Palette GetPalette(int index);
-	}
-	/// <summary>
-	/// A collection of palettes, which has been loaded from a PAL file.
-	/// </summary>
-	class PaletteCollection : IPaletteProvider {
+	class PaletteCollection {
 		public static PaletteCollection FromStream(Stream stream) {
 			BinaryReader binaryReader = new BinaryReader(stream);
 			// The first byte is the number of palettes in the collection
@@ -40,15 +34,14 @@ namespace Aesir.Nexus {
 		private PaletteCollection(Palette[] palettes) {
 			this.palettes = palettes;
 		}
-		public Palette GetPalette(int index) {
-			return palettes[index];
+		public Palette this[int index] {
+			get { return palettes[index]; }
 		}
 		private Palette[] palettes;
-		public ICollection<Palette> Palettes { get { return palettes; } }
-		public const string fileExtension = "pal";
+		public const string FileExtension = "pal";
 	}
 	/// <summary>
-	/// A palette table maps absolute graphic indices to their associated palette.
+	///		A palette table maps absolute graphic indices to their associated palette.
 	/// </summary>
 	class PaletteTable {
 		public static PaletteTable FromStream(Stream stream) {
@@ -73,12 +66,14 @@ namespace Aesir.Nexus {
 		public const string FileExtension = "tbl";
 	}
 	/// <summary>
-	/// A palette maps byte values to a corrosponding color.
+	///		A palette maps byte values to a corrosponding color.
 	/// </summary>
 	class Palette {
 		private const string validHeaderMagic = "DLPalette";
 		private Color[] entries;
-		public Color[] Entries { get { return entries; } }
+		public Color[] Entries {
+			get { return entries; }
+		}
 		public static Palette FromStream(Stream stream) {
 			// Every palette should start with the magic header "DLPalette" in ASCII
 			BinaryReader binaryReader = new BinaryReader(stream);
