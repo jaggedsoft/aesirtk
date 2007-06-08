@@ -4,13 +4,11 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.50727</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{BBF68264-6631-4C73-AE26-A4E48C495E7A}</ProjectGuid>
-    <OutputType>WinExe</OutputType>
+    <ProjectGuid>{A2486ACB-B652-48E1-8F2F-84BA7039403A}</ProjectGuid>
+    <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>DbTool</RootNamespace>
-    <AssemblyName>DbTool</AssemblyName>
-    <StartupObject>
-    </StartupObject>
+    <RootNamespace>DbProcessor</RootNamespace>
+    <AssemblyName>DbProcessor</AssemblyName>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -32,26 +30,11 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Attic\BoardDbEntry.cs" />
-    <Compile Include="Db.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="DbEntry.cs" />
-    <Compile Include="DbFile.cs" />
-    <None Include="Attic\ItemDbEntry.cs" />
-    <Compile Include="MainForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <None Include="Attic\Mob2DbEntry.cs" />
-    <None Include="Attic\MobDbEntry.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <None Include="Attic\SpawnDbEntry.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
@@ -62,6 +45,6 @@
   </Target>
   -->
   <PropertyGroup>
-    <PreBuildEvent>$(SolutionDir)DbProcessor</PreBuildEvent>
+    <PostBuildEvent>copy $(TargetPath) $(SolutionDir)</PostBuildEvent>
   </PropertyGroup>
 </Project>

@@ -56,10 +56,10 @@ namespace DbTool {
 		}
 		private void OpenFile(string filePath) {
 			this.filePath = filePath;
-			file = fileTypes[Path.GetFileName(filePath).ToLower()]();
+			file = new DbFile();
 			listBox.DataSource = file.Entries;
 			UpdateText();
-			try { file.Load(filePath); } catch(IOException exception) {
+			try { file.Load(filePath); } catch(Exception exception) {
 				MessageBox.Show("There was an error while trying to load the file.\r\n" +
 					exception.Message, "Error");
 			}
@@ -85,9 +85,10 @@ namespace DbTool {
 			}
 		}
 		private void save_Click(object sender, EventArgs args) {
+			if(file == null) return;
 			try {
 				if(file != null) file.Save(filePath);
-			} catch(IOException exception) {
+			} catch(Exception exception) {
 				MessageBox.Show("There was an error while trying to save the file.\r\n" +
 					exception.Message, "Error");
 			}
@@ -98,21 +99,15 @@ namespace DbTool {
 			settings.FormSize = Size;
 			settings.Save();
 		}
-		private delegate IDbFile DbFileFactory();
-		private static Dictionary<string, DbFileFactory> fileTypes;
 		private static string openFileDialogFilter;
 		static MainForm() {
-			fileTypes = new Dictionary<string, DbFileFactory>();
-			fileTypes["item_db.txt"] = delegate() { return new DbFile<ItemDbEntry>(); };
-			fileTypes["board_db.txt"] = delegate() { return new DbFile<BoardDbEntry>(); };
-			fileTypes["mob_db.txt"] = delegate() { return new DbFile<MobDbEntry>(); };
-			fileTypes["spawn_db.txt"] = delegate() { return new DbFile<SpawnDbEntry>(); };
-			fileTypes["mob_db2.txt"] = delegate() { return new DbFile<Mob2DbEntry>(); };
-			StringBuilder builder = new StringBuilder();
-			foreach(string key in fileTypes.Keys)
-				builder.Append(key + "|" + key + "|");
-			builder.Remove(builder.Length - 1, 1);
-			openFileDialogFilter = builder.ToString();
+			if(DbEntry.Names.Count > 0) {
+				StringBuilder builder = new StringBuilder();
+				foreach(string key in DbEntry.Names)
+					builder.Append(key + "|" + key + "|");
+				builder.Remove(builder.Length - 1, 1);
+				openFileDialogFilter = builder.ToString();
+			}
 		}
 		private IDbFile file = null;
 		private string filePath = "";

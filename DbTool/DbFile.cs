@@ -11,8 +11,11 @@ namespace DbTool {
 		DbEntry Expand();
 		IList<DbEntry> Entries { get; }
 	}
-	class DbFile<TEntry> : IDbFile where TEntry : DbEntry, new() {
+	class DbFile : IDbFile {
+		private DbEntry.Factory entryFactory;
 		public void Load(string path) {
+			entryFactory = DbEntry.GetFactory(Path.GetFileName(path));
+			if(entryFactory == null) throw new Exception("Invalid file type.");
 			entries.Clear();
 			lines.Clear();
 			using(TextReader textReader = new StreamReader(path)) {
@@ -24,14 +27,15 @@ namespace DbTool {
 						lines.Add(new CommentLine(line));
 						continue;
 					}
-					TEntry entry = DbEntry.FromLine<TEntry>(line);
+					DbEntry entry = entryFactory();
+					entry.Read(line);
 					entries.Add(entry);
 					lines.Add(new EntryLine(entry));
 				}
 			}
 		}
 		public DbEntry Expand() {
-			DbEntry entry = new TEntry();
+			DbEntry entry = entryFactory();
 			entries.Add(entry);
 			return entry;
 		}
@@ -50,7 +54,7 @@ namespace DbTool {
 						}
 					}
 				}
-				foreach(TEntry entry in pendingEntries) entry.Write(textWriter);
+				foreach(DbEntry entry in pendingEntries) entry.Write(textWriter);
 			}
 		}
 		private abstract class Line { }
@@ -60,9 +64,9 @@ namespace DbTool {
 			public CommentLine(string message) { this.message = message; }
 		}
 		private class EntryLine : Line {
-			private TEntry entry;
-			public TEntry Entry { get { return entry; } }
-			public EntryLine(TEntry entry) { this.entry = entry; }
+			private DbEntry entry;
+			public DbEntry Entry { get { return entry; } }
+			public EntryLine(DbEntry entry) { this.entry = entry; }
 		}
 		private List<Line> lines = new List<Line>();
 		private List<DbEntry> entries = new List<DbEntry>();

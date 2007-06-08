@@ -1,0 +1,14 @@
+<!-- After making changes to this file, you must recompile! -->
+<db>
+	<file name="item_db.txt" class="ItemDbEntry">
+		<field type="int" name="Number" />
+		<field type="string" name="Name" />
+		<field type="string" name="ShortName"  />
+		<field type="int" name="Rank" />
+		<enum name="Type" default="Use">
+			Eat = 0, Use, Smoke, Weapon, Armor, Shield, Helm, Left, Right, Script1, Script2,
+			FaceAcc, Crown, Mantle, Necklace, Boots, Coat, Hand, Etc, UsePc
+		</enum>
+		<string>return Name;</string>
+	</file>
+</db>
