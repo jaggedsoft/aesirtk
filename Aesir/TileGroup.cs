@@ -5,38 +5,40 @@ using System.Diagnostics;
 
 namespace Aesir {
 	class TileCell : IDisposable {
-		private TileHandle<FloorTile> floorTile;
-		private TileHandle<ObjectTile> objectTile;
-		public TileHandle<FloorTile> FloorTile {
-			set { floorTile = value; }
+		private TileHandle floorTile;
+		private TileHandle objectTile;
+		public TileHandle FloorTile {
+			set {
+				Debug.Assert(value.TileType == TileType.FloorTile);
+				floorTile = value;
+			}
 			get { return floorTile; }
 		}
-		public TileHandle<ObjectTile> ObjectTile {
+		public TileHandle ObjectTile {
+			set {
+				Debug.Assert(value.TileType == TileType.ObjectTile);
+				objectTile = value;
+			}
 			get { return objectTile; }
-			set { objectTile = value; }
 		}
-		public TTile GetTile<TTile>() where TTile : Tile {
-			if(typeof(TTile) == typeof(FloorTile)) return (TTile)FloorTile;
-			else if(typeof(TTile) == typeof(ObjectTile)) return (TTile)ObjectTile;
-			Debug.Fail("Called TileCell.GetHandle with an invalid type parameter");
-			return null;
+		public void Dispose() {
+			if(floorTile != null) floorTile.Dispose();
+			if(objectTile != null) objectTile.Dispose();
 		}
-		public void Dispose() { /* TODO */ }
 		public TileCell() {
 			floorTile = null;
 			objectTile = null;
 		}
-		public TileCell(TileHandle<FloorTile> floorTile, TileHandle<ObjectTile> objectTile) {
+		public TileCell(TileHandle floorTile, TileHandle objectTile) {
+			Debug.Assert(floorTile.TileType == TileType.FloorTile);
+			Debug.Assert(objectTile.TileType == TileType.ObjectTile);
 			this.floorTile = floorTile;
 			this.objectTile = objectTile;
 		}
 	}
 	class TileGroup : IDisposable {
-		public bool Contains<TTile>(TileHandle<TTile> target) where TTile : Tile {
-			foreach(TileCell cell in buffer) {
-				TTile tile = cell.GetTile<TTile>();
-				if(tile != null && tile.Index == ((TTile)target).Index) return true;
-			}
+		public bool Contains(Tile tile) {
+			// TODO
 			return false;
 		}
 		public TileGroup(int width, int height) {

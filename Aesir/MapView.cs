@@ -15,7 +15,7 @@ namespace Aesir {
 			RefreshDelegate refreshDelegate = new RefreshDelegate(delegate() { Refresh(); });
 			for(int y = 0; y < 40; ++y) {
 				for(int x = 0; x < 40; ++x) {
-					TileHandle<FloorTile> floorTile = FloorTileManager.Default.GetTile(x + y * 40, 1);
+					TileHandle floorTile = mainForm.floorTileProvider.GetTile(x + y * 40, 1);
 					mapDocument[x, y].FloorTile = floorTile;
 					floorTile.Load += delegate(object sender, EventArgs args) {
 						if(!IsHandleCreated) return;
@@ -38,7 +38,8 @@ namespace Aesir {
 				if(cell.FloorTile != null) {
 					lock(cell.FloorTile.SyncRoot) {
 						Point imagePoint = (Point)(point * (Vector)Tile.Size);
-						args.Graphics.DrawImage(cell.FloorTile.Image, imagePoint);
+						//args.Graphics.DrawImage(cell.FloorTile.Image, imagePoint);
+						cell.FloorTile.Draw(args.Graphics, imagePoint);
 					}
 				}
 			});
@@ -109,7 +110,8 @@ namespace Aesir {
 			public Camera(MapView mapPanel) {
 				this.mapPanel = mapPanel;
 				mapPanel.Resize += delegate(object sender, EventArgs args) {
-					center = new Vector(mapPanel.Width / 2, mapPanel.Height / 2); };
+					center = new Vector(mapPanel.Width / 2, mapPanel.Height / 2);
+				};
 			}
 			private MapView mapPanel;
 		}

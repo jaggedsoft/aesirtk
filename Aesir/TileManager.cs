@@ -14,6 +14,7 @@ using System.Configuration;
 
 // TODO: The priorities aren't working correctly, maybe PromoteTask is bugged?
 namespace Aesir {
+	enum TileType { FloorTile, ObjectTile };
 	/// <summary>
 	///		A <c>TileHandle</c> is used to refer to a <c>Tile</c> that was retrieved from a
 	///		<c>TileManager</c>.
@@ -21,8 +22,9 @@ namespace Aesir {
 	// This class is part of a reference counted tile management mechanism. In the constructor,
 	// this class increments the reference count of the referenced tile. In the Dispose method,
 	// this class decrements the reference count.
-	class TileHandle<TTile> : IDisposable, ICloneable where TTile : Tile {
-		internal TileHandle(TTile tile) {
+	class TileHandle : IDisposable, ICloneable {
+		#region Refcounting and IDisposable implementation
+		internal TileHandle(Tile tile) {
 			this.tile = tile;
 			++tile.Refcount;
 		}
@@ -37,25 +39,25 @@ namespace Aesir {
 				--tile.Refcount;
 			}
 		}
+		private bool disposed = false;
+		#endregion
 		public object Clone() {
-			return new TileHandle<TTile>(tile);
+			return new TileHandle(tile);
 		}
-		
 		public override bool Equals(object obj) {
-			return tile.Index == ((TileHandle<TTile>)obj).tile.Index;
+			return Index == ((TileHandle)obj).Index;
 		}
 		public override int GetHashCode() {
 			return tile.Index.GetHashCode();
 		}
-		public static implicit operator TTile(TileHandle<TTile> handle) {
+		public static implicit operator Tile(TileHandle handle) {
 			if(handle == null) throw new InvalidCastException("Cannot cast a null TileHandle.");
 			else return handle.tile;
 		}
-		public static implicit operator Tile(TileHandle<TTile> handle) {
-			if(handle == null) throw new InvalidCastException("Cannot cast a null TileHandle.");
-			else return handle.tile;
+		#region Wrappers for Tile members
+		public void Draw(Graphics graphics, Point point) {
+			tile.Draw(graphics, point);
 		}
-		#region Wrappers for Tile methods
 		public int Index {
 			get { return tile.Index; }
 		}
@@ -66,39 +68,35 @@ namespace Aesir {
 			add { tile.Load += value; }
 			remove { tile.Load -= value; }
 		}
-		public event EventHandler Release {
-			add { tile.Release += value; }
-			remove { tile.Release -= value; }
-		}
 		public object SyncRoot {
 			get { return tile.SyncRoot; }
 		}
-		#endregion
-		private bool disposed = false;
-		private TTile tile;
-	}
-	abstract class Tile : IDisposable {
-		private object syncRoot = new Object();
-		public object SyncRoot {
-			get { return syncRoot; }
+		public TileType TileType {
+			get { return tile.TileType; }
 		}
-		/// <summary>
-		///		This event handler is invoked when the tile is loaded. Note that loading is an
-		///		asynchronous operation.
-		/// </summary>
+		#endregion
+		private Tile tile;
+	}
+	class Tile : IDisposable {
 		public event EventHandler Load;
-		/// <summary>
-		///		This event handler is invoked when the tile is disposed or released. This event
-		///		handler will not be invoked if the tile was never loaded in the first place.
-		/// </summary>
 		public event EventHandler Release;
 		internal void Create(Image image) {
 			lock(syncRoot) this.image = image;
-			if(Load != null) Load(this, EventArgs.Empty);
+			OnLoad(EventArgs.Empty);
 		}
-		internal void OnRelease() {
-			if(Release != null) Release(this, EventArgs.Empty);
+		protected virtual void OnLoad(EventArgs args) {
+			if(Load != null) {
+				Load(this, args);
+				Load = null;
+			}
 		}
+		internal virtual void OnRelease(EventArgs args) {
+			if(Release != null) Release(this, args);
+		}
+		public Tile(TileType tileType) {
+			this.tileType = tileType;
+		}
+		#region IDisposable implementation
 		public void Dispose() {
 			Dispose(true);
 			GC.SuppressFinalize(this);
@@ -113,58 +111,93 @@ namespace Aesir {
 		}
 		private bool disposed = false;
 		~Tile() { Dispose(false); }
+		#endregion
+		#region Static members
+		public static void LoadNullImage() {
+			// TODO: Handle errors?
+			nullImage = new Bitmap("null.png");
+		}
+		private static Image nullImage;
+		internal static Image NullImage {
+			get { return nullImage; }
+		}
+		public void Draw(Graphics graphics, Point point) {
+			lock(syncRoot) {
+				if(image != null) {
+					graphics.DrawImage(image, point);
+					return;
+				}
+			}
+			graphics.DrawImage(nullImage, point);
+		}
+		public static Size Size {
+			get { return new Size(Width, Height); }
+		}
+		public const int Width = 48, Height = 48;
+		#endregion
+		#region Synchronization
+		private object nullImageSyncRoot = new Object();
+		private object syncRoot = new Object();
+		public object SyncRoot {
+			get { return syncRoot; }
+		}
+		#endregion
+		private int index;
+		protected Image image = null; // TODO: Did this cause a bug before?
+		private int refcount = 0;
+		private TileType tileType;
 		public Image Image {
 			get {
 				if(disposed) throw new ObjectDisposedException("Tile");
 				return image;
 			}
 		}
-		private int index;
 		public int Index {
 			get { return index; }
 			internal set { index = value; }
 		}
-		protected Image image = nullImage; // TODO: Did this cause a bug before?
-		public static void LoadNullImage() {
-			nullImage = new Bitmap("null.png");
-		}
-		private static Image nullImage;
-		private int refcount = 0;
 		internal int Refcount {
 			get { return refcount; }
 			set {
 				refcount = value;
-				if(refcount <= 0) OnRelease();
+				if(refcount <= 0) OnRelease(EventArgs.Empty);
 			}
 		}
-		public override string ToString() { return "{Index:" + index + "}"; }
-		public static Size Size {
-			get { return new Size(Width, Height); }
+		public TileType TileType {
+			get { return tileType; }
 		}
-		public const int Width = 48, Height = 48;
+		public override string ToString() { return "{Index:" + index + "}"; }
 	}
-	abstract class TileManagerBase {
-		static TileManagerBase() {
-			timer = new System.Threading.Timer(delegate(object state) {
-				if(TimerTick != null) TimerTick(timer, EventArgs.Empty);
+	class TileManagerException : Exception { } // TODO: Use this?
+	interface ITileProvider {
+		TileHandle GetTile(int index, int priority);
+		TileType TileType { get; }
+		int TileCount { get; }
+	}
+	class TileManager : ITileProvider {
+		#region Static members
+		static TileManager() {
+			releaseTimer = new System.Threading.Timer(delegate(object state) {
+				if(ReleaseTimerTick != null) ReleaseTimerTick(releaseTimer, EventArgs.Empty);
 			}, null, 0, ReleasePeriod);
 		}
-		protected TileManagerBase() {
-			TimerTick += delegate(object sender, EventArgs args) { Release(); };
-		}
-		protected abstract void Release();
-		private static event EventHandler TimerTick;
-		private static System.Threading.Timer timer;
+		private static event EventHandler ReleaseTimerTick;
+		// This timer is used to delay the releasing of tiles
+		private static System.Threading.Timer releaseTimer;
+		// The taskThread is used to load tiles in the background. It is shared by all TileManager
+		// instances.
 		protected static TaskThread taskThread = new TaskThread();
 		public static int ReleasePeriod {
 			get { return settings.ReleasePeriod; }
 		}
 		private static Settings.TileManager settings = Settings.TileManager.Default;
 		protected static readonly Image BlankImage = new Bitmap(Tile.Width, Tile.Height);
-	}
-	class TileManagerException : Exception { } // TODO: use this?
-	class TileManager<TTile> : TileManagerBase where TTile : Tile, new() {
-		public TileManager(string sourceTag, int sourceCount) {
+		#endregion
+		private TileType tileType;
+		public TileManager(TileType tileType, string sourceTag, int sourceCount) {
+			ReleaseTimerTick += delegate(object sender, EventArgs args) { Release(); };
+			this.tileType = tileType;
+
 			string dataPath = Settings.Global.Default.DataPath;
 			string archivePath = Path.Combine(dataPath, "tile.dat");
 			string paletteCollectionName = sourceTag + "." + PaletteCollection.FileExtension,
@@ -182,62 +215,76 @@ namespace Aesir {
 				new GraphicLoader.SourceProvider(sourceCount, Path.Combine(dataPath, sourceTag));
 			graphicLoader = new GraphicLoader(paletteCollection, paletteTable, sourceProvider);
 
-			blankTile = new TTile();
+			blankTile = new Tile(tileType);
+			// Use a clone because the Create method transfers ownership
 			blankTile.Create((Image)BlankImage.Clone());
 			blankTile.Index = 0;
 			tiles.Add(0, blankTile);
-			blankTileHandle = new TileHandle<TTile>(blankTile);
-
-			defaultInstance = this;
+			// Artificially increment the refcount for blankTile so it is never released
+			++blankTile.Refcount;
 		}
-		public TileHandle<TTile> GetTile(int index) {
-			return GetTile(index, 0);
+		public int TileCount {
+			get { return graphicLoader.GraphicCount; }
 		}
-		public TileHandle<TTile> GetTile(int index, int priority) {
+		public TileHandle GetTile(int index, int priority) {
 			Debug.Assert(index >= 0);
+			Tile tile = null;
+			LoadingTile loadingTile = null;
+			// Check to see if the tile is already loaded or is currently loading
 			lock(syncRoot) {
-				{
-					TTile tile;
-					if(tiles.TryGetValue(index, out tile)) {
-						if(releasedTiles.Contains(index))
-							releasedTiles.Remove(index);
-						return new TileHandle<TTile>(tile);
-					}
+				if(tiles.TryGetValue(index, out tile)) {
+					if(releasedTiles.Contains(index))
+						releasedTiles.Remove(index);
+					return new TileHandle(tile);
 				}
-				{
-					LoadingTile loadingTile;
-					if(loadingTiles.TryGetValue(index, out loadingTile)) {
-						taskThread.PromoteTask(loadingTile.task, priority);
-						return new TileHandle<TTile>(loadingTile.tile);
-					}
+				if(loadingTiles.TryGetValue(index, out loadingTile)) {
+					taskThread.PromoteTask(loadingTile.task, priority);
+					return new TileHandle(loadingTile.tile);
 				}
 			}
-			TTile pendingTile = new TTile();
-			pendingTile.Index = index;
-			EventHandler tile_Release = new EventHandler(delegate(object sender, EventArgs args) {
-				TTile senderTile = (TTile)sender;
-				lock(syncRoot) loadingTiles.Remove(senderTile.Index);
-			});
-			EventHandler tile_Load = new EventHandler(delegate(object sender, EventArgs args) {
-				TTile senderTile = (TTile)sender;
+			// The tile is not loaded; load it!
+			tile = new Tile(tileType);
+			tile.Index = index;
+			// The default release handler, tile_PrematureRelease, removes the tile from the list
+			// of tiles that are in the process of loading (loadingTiles). This handler will be
+			// invoked in a case where a tile is disposed before it is fully loaded. When the tile
+			// is fully loaded, tile_PrematureRelease is replaced with tile_FullRelease.
+			EventHandler tile_PrematureRelease = delegate(object sender, EventArgs args) {
+				Tile senderTile = (Tile)sender;
+				lock(syncRoot) {
+					taskThread.CancelTask(loadingTiles[senderTile.Index].task);
+					loadingTiles.Remove(senderTile.Index);
+				}
+			};
+			EventHandler tile_FullRelease = delegate(object sender, EventArgs args) {
+				Tile senderTile = (Tile)sender;
+				lock(syncRoot) releasedTiles.Add(senderTile.Index);
+			};
+			EventHandler tile_Load = delegate(object sender, EventArgs args) {
+				Tile senderTile = (Tile)sender;
 				lock(syncRoot) {
 					loadingTiles.Remove(senderTile.Index);
-					tiles.Add(senderTile.Index, senderTile);
+					if(tiles.ContainsKey(senderTile.Index)) {
+						if(tiles[senderTile.Index].Refcount != 0) {
+							Debug.Fail(""); // TODO: Document?
+						} else tiles[senderTile.Index].Dispose();
+					}
+					tiles[senderTile.Index] = senderTile;
 				}
-				senderTile.Release -= tile_Release;
-				senderTile.Release += delegate(object innerSender, EventArgs innerArgs) {
-					lock(syncRoot) releasedTiles.Add(((TTile)innerSender).Index);
-				};
-			});
+				senderTile.Release -= tile_PrematureRelease;
+				senderTile.Release += tile_FullRelease;
+			};
+			tile.Release += tile_PrematureRelease;
+			tile.Load += tile_Load;
 			TaskThread.Task task = taskThread.AddTask(
 				delegate() { return graphicLoader.LoadGraphic(index); },
-				delegate(object args) { pendingTile.Create((Image)args); },
+				delegate(object args) { tile.Create((Image)args); },
 				priority);
-			LoadingTile pendingLoadingTile = new LoadingTile(task, pendingTile);
-			lock(syncRoot) loadingTiles.Add(pendingTile.Index, pendingLoadingTile);
-			return new TileHandle<TTile>(pendingTile);
+			loadingTile = new LoadingTile(task, tile);
+			lock(syncRoot) loadingTiles.Add(tile.Index, loadingTile);
+			return new TileHandle(tile);
 		}
-		protected override void Release() {
+		private void Release() {
 			lock(syncRoot) {
 				foreach(int index in releasedTiles) {
 					tiles[index].Dispose();
@@ -247,34 +294,24 @@ namespace Aesir {
 			}
 		}
 		private object syncRoot = new Object();
-		public int TileCount {
+		public int LoadedTileCount {
 			get { return tiles.Count; }
 		}
-		private readonly TTile blankTile;
-		private readonly TileHandle<TTile> blankTileHandle;
-		private GraphicLoader graphicLoader;
-		private static TileManager<TTile> defaultInstance;
-		public static TileManager<TTile> Default {
-			get { return defaultInstance; }
+		public TileType TileType {
+			get { return tileType; }
 		}
+		private readonly Tile blankTile;
+		private GraphicLoader graphicLoader;
 		private class LoadingTile {
 			public TaskThread.Task task;
-			public TTile tile;
-			public LoadingTile(TaskThread.Task task, TTile tile) {
+			public Tile tile;
+			public LoadingTile(TaskThread.Task task, Tile tile) {
 				this.task = task;
 				this.tile = tile;
 			}
 		}
-		private Dictionary<int, LoadingTile> loadingTiles = new Dictionary<int, LoadingTile>();
 		private List<int> releasedTiles = new List<int>();
-		private Dictionary<int, TTile> tiles = new Dictionary<int, TTile>();
-	}
-	class ObjectTile : Tile { }
-	class FloorTile : Tile { }
-	class FloorTileManager : TileManager<FloorTile> {
-		public FloorTileManager() : base("tile", 16) { }
-	}
-	class ObjectTileManager : TileManager<ObjectTile> {
-		public ObjectTileManager() : base("tilec", 19) { }
+		private Dictionary<int, LoadingTile> loadingTiles = new Dictionary<int, LoadingTile>();
+		private Dictionary<int, Tile> tiles = new Dictionary<int, Tile>();
 	}
 }

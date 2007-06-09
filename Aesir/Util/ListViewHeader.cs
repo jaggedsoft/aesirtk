@@ -9,11 +9,11 @@ namespace Aesir.Util {
 	class ListViewHeader : NativeWindow {
 		[DllImport("user32.dll")]
 		private static extern IntPtr GetWindow(IntPtr windowHandle, uint command);
-		private enum GetWindow_Command { Child = 5 };
-		private enum Message_Msg { LButtonDown = 0x0020, SetCursor = 0x0201 };
+		private const int GetWindow_Child = 5;
+		private const int Msg_LButtonDown = 0x0020, Msg_SetCursor = 0x0201;
 		public ListViewHeader(ListView listView) {
 			listView.HandleCreated += delegate(object sender, EventArgs args) {
-				IntPtr handle = GetWindow(listView.Handle, (int)GetWindow_Command.Child);
+				IntPtr handle = GetWindow(listView.Handle, GetWindow_Child);
 				AssignHandle(handle);
 			};
 		}
@@ -26,8 +26,8 @@ namespace Aesir.Util {
 		protected override void WndProc(ref Message message) {
 			if(!allowResizeColumns) {
 				// Block WM_SETCURSOR and WM_LBUTTONDOWN messages
-				if(message.Msg == (int)Message_Msg.LButtonDown ||
-					message.Msg == (int)Message_Msg.SetCursor) message.Msg = 0;
+				if(message.Msg == (int)Msg_LButtonDown ||
+					message.Msg == (int)Msg_SetCursor) message.Msg = 0;
 			}
 			base.WndProc(ref message);
 		}

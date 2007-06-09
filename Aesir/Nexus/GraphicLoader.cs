@@ -113,16 +113,22 @@ namespace Aesir.Nexus {
 				return stream;
 			}
 		}
+		public int GraphicCount {
+			get { return graphicCount; }
+		}
+		private int graphicCount;
 		public GraphicLoader(PaletteCollection paletteCollection, PaletteTable paletteTable,
 			ISourceProvider sourceProvider) {
 			this.paletteCollection = paletteCollection;
 			this.paletteTable = paletteTable;
 			this.sourceProvider = sourceProvider;
+			graphicCount = 0;
 			// Precache the EPF header information
 			sourceHeaders = new GraphicCollectionHeader[sourceProvider.SourceCount];
 			for(int index = 0; index < sourceProvider.SourceCount; ++index) {
 				using(Stream stream = sourceProvider.GetSourceStream(index))
 					sourceHeaders[index] = GraphicCollectionHeader.FromStream(stream);
+				graphicCount += sourceHeaders[index].GraphicCount;
 			}
 		}
 		private GraphicCollectionHeader[] sourceHeaders;

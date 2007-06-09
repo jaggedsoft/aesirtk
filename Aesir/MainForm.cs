@@ -4,11 +4,14 @@ using System.Text;
 using System.Windows.Forms;
 using System.Drawing;
 using System.Configuration;
+using System.Diagnostics;
 
 namespace Aesir {
 	class MainForm : Form {
-		public MainForm() {
-			graphicBrowserForm = new GraphicBrowser();
+		public MainForm(ITileProvider floorTileProvider, ITileProvider objectTileProvider) {
+			this.floorTileProvider = floorTileProvider;
+			this.objectTileProvider = objectTileProvider;
+			graphicBrowser = new GraphicBrowser(floorTileProvider, objectTileProvider);
 			mapView = new MapView(this);
 			Controls.Add(mapView);
 			Text = "Aesir";
@@ -31,10 +34,11 @@ namespace Aesir {
 			statusBar.Panels.Add(panel);
 			statusBar.ShowPanels = true;
 			Controls.Add(statusBar);
-			graphicBrowserForm.Show();
-			graphicBrowserForm.Focus(); // TEMP
+			graphicBrowser.Show();
 		}
-		private GraphicBrowser graphicBrowserForm;
+		private MapView mapView;
+		public ITileProvider floorTileProvider, objectTileProvider; // TEMP: SHOULD BE PRIVATE
+		private GraphicBrowser graphicBrowser;
 		private StatusBar statusBar = new StatusBar();
 		protected override void OnLayout(LayoutEventArgs args) {
 			base.OnLayout(args);
@@ -42,12 +46,8 @@ namespace Aesir {
 			mapView.Size = ClientRectangle.Size - new Size(0, statusBar.Height);
 		}
 		private Settings.MainForm settings = Settings.MainForm.Default;
-		public MapView MapView {
-			get { return mapView; }
-		}
-		private MapView mapView;
 		protected override void OnFormClosing(FormClosingEventArgs args) {
-			graphicBrowserForm.Close();
+			graphicBrowser.Close();
 			settings.Save();
 			base.OnFormClosing(args);
 		}

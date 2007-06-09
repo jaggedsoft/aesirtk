@@ -12,29 +12,22 @@ using System.Configuration;
 // NOTE: My Computer\HKEY_CURRENT_USER\Software\Nexon\Kingdom of the Winds\Location
 namespace Aesir {
 	class Program {
-		private static MainForm mainForm;
-		public static MainForm MainForm {
-			get { return mainForm; }
-		}
-		private static FloorTileManager floorTileManager;
-		public static FloorTileManager FloorTileManager {
-			get { return floorTileManager; }
-		}
-		private static ObjectTileManager objectTileManager;
-		public static ObjectTileManager ObjectTileManager {
-			get { return objectTileManager; }
-		}
+		private const string FloorTileSourceTag = "tile", ObjectTileSourceTag = "tilec";
+		private const int FloorTileSourceCount = 16, ObjectTileSourceCount = 19;
 		[STAThread()]
 		static void Main(string[] args) {
 			Tile.LoadNullImage();
+			TileManager floorTileManager, objectTileManager;
 			try {
-				floorTileManager = new FloorTileManager();
-				objectTileManager = new ObjectTileManager();
+				floorTileManager = new TileManager(TileType.FloorTile,
+					FloorTileSourceTag, FloorTileSourceCount);
+				objectTileManager = new TileManager(TileType.ObjectTile,
+					ObjectTileSourceTag, ObjectTileSourceCount);
 			} catch(IOException exception) {
 				// TODO: Descriptive error message and option to choose a data path manually.
 				return;
 			}
-			mainForm = new MainForm();
+			MainForm mainForm = new MainForm(floorTileManager, objectTileManager);
 			Application.Run(mainForm);
 			Settings.Global.Default.Save();
 		}

@@ -11,38 +11,62 @@ using System.Diagnostics;
 
 namespace Aesir {
 	class GraphicBrowser : Form {
-		public GraphicBrowser() {
+		public GraphicBrowser(ITileProvider floorTileProvider, ITileProvider objectTileProvider) {
+			this.floorTileProvider = floorTileProvider;
+			this.objectTileProvider = objectTileProvider;
+			SuspendLayout();
 			FormBorderStyle = FormBorderStyle.SizableToolWindow;
 			Text = "Graphic Browser";
 			tabControl = new TabControl();
 			tabControl.Dock = DockStyle.Fill;
-			tabControl.TabPages.Add(floorTileBrowser = new FloorTileBrowserTabPage(this));
-			tabControl.TabPages.Add(objectTileBrowser = new ObjectTileBrowserTabPage(this));
+			tabControl.TabPages.Add(floorTileBrowser = new FloorTileBrowser(this));
+			tabControl.TabPages.Add(objectTileBrowser = new ObjectTileBrowser(this));
 			Controls.Add(tabControl);
+			ResumeLayout();
 			DataBindings.Add(new Binding("Size", settings, "FormSize", true,
 				DataSourceUpdateMode.OnPropertyChanged));
 			DataBindings.Add(new Binding("Location", settings, "FormLocation", true,
 				DataSourceUpdateMode.OnPropertyChanged));
 			settings.SettingsLoaded += delegate(object sender, SettingsLoadedEventArgs args) {
-				splitterDistance = settings.SplitterDistance; };
+				splitterDistance = settings.SplitterDistance;
+			};
 		}
+		private ITileProvider floorTileProvider, objectTileProvider;
 		protected override void OnMouseWheel(MouseEventArgs args) {
 			base.OnMouseWheel(args);
-			if(tabControl.SelectedTab == floorTileBrowser)
-				floorTileBrowser.TileBrowserPanel.OnMouseWheel(args);
-			else if(tabControl.SelectedTab == objectTileBrowser)
-				objectTileBrowser.TileBrowserPanel.OnMouseWheel(args);
+			switch(ActiveTileType) {
+			case TileType.FloorTile: floorTileBrowser.OnMouseWheel(args); break;
+			case TileType.ObjectTile: objectTileBrowser.OnMouseWheel(args); break;
+			}
 		}
 		private TabControl tabControl;
-		private FloorTileBrowserTabPage floorTileBrowser;
-		private ObjectTileBrowserTabPage objectTileBrowser;
+		private TileBrowser floorTileBrowser, objectTileBrowser;
+		public TileType? ActiveTileType { // TODO: Are nullables .NET 2?
+			get {
+				if(tabControl.SelectedTab == floorTileBrowser)
+					return TileType.FloorTile;
+				else if(tabControl.SelectedTab == objectTileBrowser)
+					return TileType.ObjectTile;
+				return null;
+			}
+		}
+		public TileGroup Selection {
+			get {
+				switch(ActiveTileType) {
+				case TileType.FloorTile: return floorTileBrowser.Selection;
+				case TileType.ObjectTile: return objectTileBrowser.Selection;
+				default: return null;
+				}
+			}
+		}
 		protected override void OnFormClosing(FormClosingEventArgs args) {
 			settings.SplitterDistance = splitterDistance;
 			settings.Save();
 			base.OnFormClosing(args);
 		}
 		private class CategoryPanel : Panel {
-			public CategoryPanel() {
+			public CategoryPanel(ITileProvider baseTileProvider) {
+				this.baseTileProvider = baseTileProvider;
 				SuspendLayout();
 				listView.View = View.Details;
 				listView.Columns.Add("Category");
@@ -59,6 +83,11 @@ namespace Aesir {
 				Controls.Add(listView);
 				ResumeLayout();
 			}
+			public ITileProvider TileProvider {
+				get { return baseTileProvider; } // TEMP
+			}
+			public event EventHandler TileProviderChanged;
+			private ITileProvider baseTileProvider;
 			private void listView_Resize(object sender, EventArgs args) {
 				listView.Columns[0].Width = listView.Width - listView.Columns[1].Width;
 			}
@@ -70,7 +99,7 @@ namespace Aesir {
 		///		<c>ObjectTileBrowserPanel</c>. A <c>TileBrowserPanel</c> presents the user with
 		///		a scrollable view of tiles or objects which can be selected with the mouse.
 		/// </summary>
-		private abstract class TileBrowserPanel<TTile> : Panel where TTile : Tile {
+		private abstract class TileBrowserPanel : Panel {
 			protected int TileWidth {
 				get { return Width / Tile.Width; }
 			}
@@ -80,6 +109,26 @@ namespace Aesir {
 			protected TileBrowserPanel() {
 				DoubleBuffered = true;
 			}
+			protected ITileProvider tileProvider;
+			public ITileProvider TileProvider {
+				set {
+					tileProvider = value;
+					OnTileProviderChanged(EventArgs.Empty);
+				}
+			}
+			private TileGroup selection;
+			public TileGroup Selection {
+				get { return selection; }
+				protected set {
+					selection = value;
+					OnSelectionChanged(EventArgs.Empty);
+				}
+			}
+			public event EventHandler SelectionChanged;
+			protected virtual void OnSelectionChanged(EventArgs args) {
+				if(SelectionChanged != null) SelectionChanged(this, args);
+			}
+			protected virtual void OnTileProviderChanged(EventArgs args) { }
 			protected abstract void OnScroll(int delta, int value);
 			protected void InitializeScrollBar() {
 				ScrollBar.ValueChanged += delegate(object sender, EventArgs args) {
@@ -92,10 +141,10 @@ namespace Aesir {
 				int delta = ScrollBar.SmallChange * (args.Delta / -120);
 				ScrollBar.Value = MathUtil.Clamp(ScrollBar.Value + delta, 0, ScrollBar.Maximum);
 			}
-			protected abstract class TileView : CircularBuffer<TileHandle<TTile>[]> {
-				protected override void Dispose(TileHandle<TTile>[] element) {
+			protected abstract class TileView : CircularBuffer<TileHandle[]> {
+				protected override void Dispose(TileHandle[] element) {
 					if(element == null) return;
-					foreach(TileHandle<TTile> tile in element) {
+					foreach(TileHandle tile in element) {
 						if(tile != null) tile.Dispose();
 					}
 				}
@@ -108,7 +157,7 @@ namespace Aesir {
 
 			protected abstract ScrollBar ScrollBar { get; }
 		}
-		private class FloorTileBrowserPanel : TileBrowserPanel<FloorTile> {
+		private class FloorTileBrowserPanel : TileBrowserPanel {
 			private new int TileWidth {
 				get { return (Width - scrollBar.Width) / Tile.Width; }
 			}
@@ -120,13 +169,13 @@ namespace Aesir {
 					this.panel = panel;
 				}
 				private FloorTileBrowserPanel panel;
-				protected override TileHandle<FloorTile>[] Create(int index, object stateObj) {
+				protected override TileHandle[] Create(int index, object stateObj) {
 					State state = (State)stateObj;
-					TileHandle<FloorTile>[] element = new TileHandle<FloorTile>[state.Width];
+					TileHandle[] element = new TileHandle[state.Width];
 					for(int elementIndex = 0; elementIndex < state.Width; ++elementIndex) {
-						element[elementIndex] = Program.FloorTileManager.GetTile(
-							state.Offset * state.Width + elementIndex + index * state.Width);
-						((FloorTile)element[elementIndex]).Load += delegate(object sender, EventArgs args) {
+						element[elementIndex] = panel.tileProvider.GetTile(
+							state.Offset * state.Width + elementIndex + index * state.Width, 0);
+						element[elementIndex].Load += delegate(object sender, EventArgs args) {
 							panel.Refresh();
 						};
 					}
@@ -155,20 +204,24 @@ namespace Aesir {
 				tileView = new FloorTileView(this);
 				ResizeRedraw = false;
 				scrollBar.Dock = DockStyle.Right;
-				scrollBar.Enabled = false; // Disable the scroll bar until we have a TileProvider
+				scrollBar.Enabled = false;
 				scrollBar.LargeChange = 2;
 				Controls.Add(scrollBar);
 				InitializeScrollBar();
-				ContextMenu = new ContextMenu(new MenuItem[]{ new MenuItem("Lol") });
+				ContextMenu = new ContextMenu(new MenuItem[]{ new MenuItem("Lol") }); // TODO
 			}
 			protected override void OnScroll(int delta, int value) {
-				tileView.Advance(delta, new FloorTileView.State(TileWidth, value));
-				Refresh();
+				if(tileProvider != null) {
+					tileView.Advance(delta, new FloorTileView.State(TileWidth, value));
+					Refresh();
+				}
 			}
 			protected override void OnResize(EventArgs args) {
 				base.OnResize(args);
-				tileView.Rebuild(TileHeight, GetState());
-				UpdateScrollBar();
+				if(tileProvider != null) {
+					tileView.Rebuild(TileHeight, GetState());
+					UpdateScrollBar();
+				}
 			}
 			protected override void OnMouseMove(MouseEventArgs args) {
 				base.OnMouseMove(args);
@@ -191,7 +244,7 @@ namespace Aesir {
 						Math.Abs(locationDelta.X), Math.Abs(locationDelta.Y));
 					for(int y = initialLocation.Y; y != location.Y; y += Math.Sign(locationDelta.Y)) {
 						for(int x = initialLocation.X; x != location.X; x += Math.Sign(locationDelta.X))
-							selection[x, y].FloorTile = (TileHandle<FloorTile>)tileView[y][x].Clone();
+							selection[x, y].FloorTile = (TileHandle)tileView[y][x].Clone();
 					}
 					inputState = null;
 				}
@@ -209,13 +262,17 @@ namespace Aesir {
 			protected override void OnPaint(PaintEventArgs args) {
 				base.OnPaint(args);
 				for(int rowIndex = 0; rowIndex <= TileHeight; ++rowIndex) {
-					TileHandle<FloorTile>[] row = tileView[rowIndex];
+					TileHandle[] row = tileView[rowIndex];
 					for(int columnIndex = 0; columnIndex < TileWidth; ++columnIndex) {
-						TileHandle<FloorTile> tile  = row[columnIndex];
+						TileHandle tile  = row[columnIndex];
 						Point point = new Point(columnIndex * Tile.Width, rowIndex * Tile.Height);
 						if(tile != null) {
-							lock(tile.SyncRoot)
-								args.Graphics.DrawImage(tile.Image, point);
+							lock(tile.SyncRoot) {
+								//if(tile.Image != null) {
+									tile.Draw(args.Graphics, point);
+								//}
+							}
+								//args.Graphics.DrawImage(tile.Image, point); // TEMP
 						}
 					}
 				}
@@ -229,17 +286,18 @@ namespace Aesir {
 			}
 			private VScrollBar scrollBar = new VScrollBar();
 		}
-		private class ObjectTileBrowserPanel : TileBrowserPanel<ObjectTile> {
+		private class ObjectTileBrowserPanel : TileBrowserPanel {
 			protected override ScrollBar ScrollBar {
 				get { return null; } // TODO: ScrollBar for ObjectTileBrowserPanel
 			}
 			protected override void OnScroll(int delta, int value) {
 			}
 		}
-		private class TileBrowserTabPage<TTile> : TabPage where TTile : Tile {
-			public TileBrowserTabPage(GraphicBrowser graphicBrowserForm,
-				TileBrowserPanel<TTile> tileBrowserPanel) {
+		private class TileBrowser : TabPage {
+			public TileBrowser(GraphicBrowser graphicBrowser,
+				TileBrowserPanel tileBrowserPanel, ITileProvider tileProvider) {
 
+				categoryPanel = new CategoryPanel(tileProvider);
 				splitContainer.Dock = DockStyle.Fill;
 				categoryPanel.Dock = DockStyle.Fill;
 				tileBrowserPanel.Dock = DockStyle.Fill;
@@ -247,33 +305,50 @@ namespace Aesir {
 				splitContainer.Panel2.Controls.Add(tileBrowserPanel);
 				splitContainer.FixedPanel = FixedPanel.Panel1;
 				Controls.Add(splitContainer);
-				this.graphicBrowserForm = graphicBrowserForm;
+				this.graphicBrowser = graphicBrowser;
 				this.tileBrowserPanel = tileBrowserPanel;
-				graphicBrowserForm.splitterDistance = splitContainer.SplitterDistance;
+				graphicBrowser.splitterDistance = splitContainer.SplitterDistance;
 				Enter += delegate(object sender, EventArgs args) {
-					splitContainer.SplitterDistance = graphicBrowserForm.splitterDistance; };
+					splitContainer.SplitterDistance = graphicBrowser.splitterDistance;
+				};
 				Leave += delegate(object sender, EventArgs args) {
-					graphicBrowserForm.splitterDistance = splitContainer.SplitterDistance; };
+					graphicBrowser.splitterDistance = splitContainer.SplitterDistance;
+				};
+				tileBrowserPanel.TileProvider = categoryPanel.TileProvider;
+				categoryPanel.TileProviderChanged += delegate(object sender, EventArgs args) {
+					tileBrowserPanel.TileProvider = categoryPanel.TileProvider;
+				};
 			}
-			protected GraphicBrowser graphicBrowserForm;
-			private TileBrowserPanel<TTile> tileBrowserPanel;
+			public new void OnMouseWheel(MouseEventArgs args) {
+				tileBrowserPanel.OnMouseWheel(args);
+			}
+			public TileGroup Selection {
+				get { return tileBrowserPanel.Selection; }
+			}
+			public event EventHandler SelectionChanged {
+				add { tileBrowserPanel.SelectionChanged += value; }
+				remove { tileBrowserPanel.SelectionChanged -= value; }
+			}
+			protected GraphicBrowser graphicBrowser;
+			private TileBrowserPanel tileBrowserPanel;
 			private SplitContainer splitContainer = new SplitContainer();
-			private CategoryPanel categoryPanel = new CategoryPanel();
-			public TileBrowserPanel<TTile> TileBrowserPanel {
-				get { return tileBrowserPanel; }
-			}
+			private CategoryPanel categoryPanel;
 		}
 		private int splitterDistance;
 		private Settings.GraphicBrowser settings = Settings.GraphicBrowser.Default;
-		private class FloorTileBrowserTabPage : TileBrowserTabPage<FloorTile> {
-			public FloorTileBrowserTabPage(GraphicBrowser graphicBrowserForm)
-				: base(graphicBrowserForm, new FloorTileBrowserPanel()) {
+		private class FloorTileBrowser : TileBrowser {
+			public FloorTileBrowser(GraphicBrowser graphicBrowser)
+				: base(graphicBrowser, new FloorTileBrowserPanel(),
+				graphicBrowser.floorTileProvider) {
+
 				Text = "Floor tiles";
 			}
 		}
-		private class ObjectTileBrowserTabPage : TileBrowserTabPage<ObjectTile> {
-			public ObjectTileBrowserTabPage(GraphicBrowser graphicBrowserForm)
-				: base(graphicBrowserForm, new ObjectTileBrowserPanel()) {
+		private class ObjectTileBrowser : TileBrowser {
+			public ObjectTileBrowser(GraphicBrowser graphicBrowser)
+				: base(graphicBrowser, new ObjectTileBrowserPanel(),
+				graphicBrowser.objectTileProvider) {
+
 				Text = "Object tiles";
 			}
 		}
