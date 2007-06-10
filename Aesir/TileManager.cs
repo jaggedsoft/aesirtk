@@ -137,7 +137,7 @@ namespace Aesir {
 		#endregion
 		#region Synchronization
 		private object nullImageSyncRoot = new Object();
-		private object syncRoot = new Object();
+		private readonly object syncRoot = new Object();
 		public object SyncRoot {
 			get { return syncRoot; }
 		}
@@ -238,7 +238,7 @@ namespace Aesir {
 					return new TileHandle(tile);
 				}
 				if(loadingTiles.TryGetValue(index, out loadingTile)) {
-					taskThread.PromoteTask(loadingTile.task, priority);
+					taskThread.PromoteTask(loadingTile.taskHandle, priority);
 					return new TileHandle(loadingTile.tile);
 				}
 			}
@@ -252,7 +252,7 @@ namespace Aesir {
 			EventHandler tile_PrematureRelease = delegate(object sender, EventArgs args) {
 				Tile senderTile = (Tile)sender;
 				lock(syncRoot) {
-					taskThread.CancelTask(loadingTiles[senderTile.Index].task);
+					taskThread.CancelTask(loadingTiles[senderTile.Index].taskHandle);
 					loadingTiles.Remove(senderTile.Index);
 				}
 			};
@@ -276,11 +276,11 @@ namespace Aesir {
 			};
 			tile.Release += tile_PrematureRelease;
 			tile.Load += tile_Load;
-			TaskThread.Task task = taskThread.AddTask(
+			TaskThread.TaskHandle taskHandle = taskThread.AddTask(
 				delegate() { return graphicLoader.LoadGraphic(index); },
 				delegate(object args) { tile.Create((Image)args); },
 				priority);
-			loadingTile = new LoadingTile(task, tile);
+			loadingTile = new LoadingTile(taskHandle, tile);
 			lock(syncRoot) loadingTiles.Add(tile.Index, loadingTile);
 			return new TileHandle(tile);
 		}
@@ -293,7 +293,7 @@ namespace Aesir {
 				releasedTiles.Clear();
 			}
 		}
-		private object syncRoot = new Object();
+		private readonly object syncRoot = new Object();
 		public int LoadedTileCount {
 			get { return tiles.Count; }
 		}
@@ -303,10 +303,10 @@ namespace Aesir {
 		private readonly Tile blankTile;
 		private GraphicLoader graphicLoader;
 		private class LoadingTile {
-			public TaskThread.Task task;
+			public TaskThread.TaskHandle taskHandle;
 			public Tile tile;
-			public LoadingTile(TaskThread.Task task, Tile tile) {
-				this.task = task;
+			public LoadingTile(TaskThread.TaskHandle taskHandle, Tile tile) {
+				this.taskHandle = taskHandle;
 				this.tile = tile;
 			}
 		}

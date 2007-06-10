@@ -41,7 +41,7 @@ namespace Aesir {
 		}
 		private TabControl tabControl;
 		private TileBrowser floorTileBrowser, objectTileBrowser;
-		public TileType? ActiveTileType { // TODO: Are nullables .NET 2?
+		public TileType? ActiveTileType {
 			get {
 				if(tabControl.SelectedTab == floorTileBrowser)
 					return TileType.FloorTile;
@@ -154,7 +154,6 @@ namespace Aesir {
 				}
 			}
 			private int oldScrollBarValue = 0;
-
 			protected abstract ScrollBar ScrollBar { get; }
 		}
 		private class FloorTileBrowserPanel : TileBrowserPanel {

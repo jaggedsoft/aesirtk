@@ -2,16 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.ComponentModel;
+using C5;
 
 namespace Aesir.Util {
 	class TaskThread {
 		public delegate object TaskRun();
 		public delegate void TaskCompleted(object args);
-		public class Task : IComparable {
-			internal TaskRun taskRun;
-			internal TaskCompleted taskCompleted;
-			internal int priority;
-			internal Task(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
+		internal class Task : IComparable {
+			public TaskRun taskRun;
+			public TaskCompleted taskCompleted;
+			public int priority;
+			public IPriorityQueueHandle<Task> priorityQueueHandle;
+			public Task(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
 				this.taskRun = taskRun;
 				this.taskCompleted = taskCompleted;
 				this.priority = priority;
@@ -28,6 +30,9 @@ namespace Aesir.Util {
 				if(taskObj == null) return false;
 				return taskObj.number == number;
 			}
+			public override int GetHashCode() {
+				return priority.GetHashCode();
+			}
 			public override string ToString() {
 				return "{Priority:" + priority + "}";
 			}
@@ -40,34 +45,44 @@ namespace Aesir.Util {
 				this.task = task;
 			}
 		}
+		public class TaskHandle {
+			internal IPriorityQueueHandle<Task> priorityQueueHandle;
+			internal TaskHandle(IPriorityQueueHandle<Task> priorityQueueHandle) {
+				this.priorityQueueHandle = priorityQueueHandle;
+			}
+		}
 		public TaskThread() {
 			thread.RunWorkerCompleted +=new RunWorkerCompletedEventHandler(thread_RunWorkerCompleted);
 			thread.DoWork += new DoWorkEventHandler(thread_DoWork);
 		}
-		public void AddTask(TaskRun taskRun, TaskCompleted taskCompleted) {
-			AddTask(taskRun, taskCompleted, 0);
+		public TaskHandle AddTask(TaskRun taskRun, TaskCompleted taskCompleted) {
+			return AddTask(taskRun, taskCompleted, 0);
 		}
-		public Task AddTask(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
+		public TaskHandle AddTask(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
 			Task task = new Task(taskRun, taskCompleted, priority);
-			lock(tasks.SyncRoot) tasks.Push(task);
+			lock(syncRoot) tasks.Add(ref task.priorityQueueHandle, task);
 			UpdateBackgroundWorker();
-			return task;
+			return new TaskHandle(task.priorityQueueHandle);
 		}
-		public void PromoteTask(Task task, int priority) {
+		public void PromoteTask(TaskHandle taskHandle, int priority) {
+			Task task;
+			if(!tasks.Find(taskHandle.priorityQueueHandle, out task)) return;
 			if(priority > task.priority) return;
-			lock(tasks.SyncRoot) {
-				tasks.Remove(task);
+			lock(syncRoot) {
+				tasks.Delete(taskHandle.priorityQueueHandle);
 				task.priority = priority;
-				tasks.Push(task);
+				tasks.Add(task);
 			}
 		}
-		public void CancelTask(Task task) {
-			lock(tasks.SyncRoot) tasks.Remove(task);
+		public void CancelTask(TaskHandle taskHandle) {
+			try {
+				lock(syncRoot) tasks.Delete(taskHandle.priorityQueueHandle);
+			}  catch(InvalidPriorityQueueHandleException) { }
 		}
 		private void UpdateBackgroundWorker() {
-			lock(tasks.SyncRoot) {
+			lock(syncRoot) {
 				if(!thread.IsBusy && tasks.Count > 0)
-					thread.RunWorkerAsync(tasks.Pop());
+					thread.RunWorkerAsync(tasks.DeleteMin());
 			}
 		}
 		private void thread_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs args) {
@@ -80,7 +95,8 @@ namespace Aesir.Util {
 			args.Result = new TaskResult(task.taskRun(), task);
 			if(thread.CancellationPending) args.Cancel = true;
 		}
-		private IPriorityQueue tasks = new BinaryPriorityQueue();
+		private readonly object syncRoot = new Object();
+		private IPriorityQueue<Task> tasks = new IntervalHeap<Task>();
 		private BackgroundWorker thread = new BackgroundWorker();
 	}
 }

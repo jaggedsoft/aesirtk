@@ -24,6 +24,7 @@ namespace Aesir {
 				objectTileManager = new TileManager(TileType.ObjectTile,
 					ObjectTileSourceTag, ObjectTileSourceCount);
 			} catch(IOException exception) {
+				MessageBox.Show(exception.Message);
 				// TODO: Descriptive error message and option to choose a data path manually.
 				return;
 			}

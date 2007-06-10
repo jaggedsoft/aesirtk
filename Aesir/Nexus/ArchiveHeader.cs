@@ -4,6 +4,16 @@ using System.Text;
 using System.IO;
 
 namespace Aesir.Nexus {
+	class ArchiveEntry {
+		private int offset;
+		/// <summary>
+		///		The absolute offset to this file in the archive file.
+		///	</summary>
+		public int Offset {
+			get { return offset; }
+		}
+		internal ArchiveEntry(int offset) { this.offset = offset; }
+	}
 	/// <summary>
 	///		Information about a Nexus archive. Nexus stores graphics data in simple uncompressed
 	///		files, which have the file extension DAT.
@@ -13,21 +23,11 @@ namespace Aesir.Nexus {
 	///		<c>ArchiveHeader.Entry.Offset</c> property to determine where to seek to find the file data.
 	/// </remarks>
 	class ArchiveHeader {
-		public class Entry {
-			private int offset;
-			/// <summary>
-			///		The absolute offset to this file in the archive file.
-			///	</summary>
-			public int Offset {
-				get { return offset; }
-			}
-			internal Entry(int offset) { this.offset = offset; }
-		}
-		private Dictionary<string, Entry> entries;
+		private Dictionary<string, ArchiveEntry> entries;
 		public ICollection<string> EntryNames {
 			get { return entries.Keys; }
 		}
-		public Entry GetEntry(string targetEntryName) {
+		public ArchiveEntry GetEntry(string targetEntryName) {
 			if(entries == null) throw new InvalidOperationException();
 			foreach(string entryName in entries.Keys) {
 				if(entryName.ToLower() == targetEntryName.ToLower())
@@ -37,7 +37,7 @@ namespace Aesir.Nexus {
 		}
 		public void Read(Stream stream) {
 			BinaryReader binaryReader = new BinaryReader(stream);
-			entries = new Dictionary<string, Entry>();
+			entries = new Dictionary<string, ArchiveEntry>();
 			// Read the length-prefixed list of file entries
 			int count = (int)(binaryReader.ReadUInt32() - 1);
 			for(int index = 0; index < count; ++index) {
@@ -48,7 +48,7 @@ namespace Aesir.Nexus {
 				// does not take the null-terminator into account
 				Array.Resize<byte>(ref nameBuffer, Array.IndexOf<byte>(nameBuffer, 0));
 				string name = Encoding.ASCII.GetString(nameBuffer);
-				entries.Add(name, new Entry(offset));
+				entries.Add(name, new ArchiveEntry(offset));
 			}
 		}
 		public ArchiveHeader() { }
