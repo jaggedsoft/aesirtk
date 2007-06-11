@@ -112,15 +112,10 @@ namespace Aesir {
 		private bool disposed = false;
 		~Tile() { Dispose(false); }
 		#endregion
-		#region Static members
-		public static void LoadNullImage() {
-			// TODO: Handle errors?
-			nullImage = new Bitmap("null.png");
+		public static Size Size {
+			get { return new Size(Width, Height); }
 		}
-		private static Image nullImage;
-		internal static Image NullImage {
-			get { return nullImage; }
-		}
+		public const int Width = 48, Height = 48;
 		public void Draw(Graphics graphics, Point point) {
 			lock(syncRoot) {
 				if(image != null) {
@@ -128,22 +123,14 @@ namespace Aesir {
 					return;
 				}
 			}
-			graphics.DrawImage(nullImage, point);
+			graphics.FillRectangle(Brushes.Black, new Rectangle(point, Size));
 		}
-		public static Size Size {
-			get { return new Size(Width, Height); }
-		}
-		public const int Width = 48, Height = 48;
-		#endregion
-		#region Synchronization
-		private object nullImageSyncRoot = new Object();
 		private readonly object syncRoot = new Object();
 		public object SyncRoot {
 			get { return syncRoot; }
 		}
-		#endregion
 		private int index;
-		protected Image image = null; // TODO: Did this cause a bug before?
+		protected Image image = null;
 		private int refcount = 0;
 		private TileType tileType;
 		public Image Image {

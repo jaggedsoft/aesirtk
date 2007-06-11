@@ -37,12 +37,12 @@ namespace Aesir {
 		}
 	}
 	class TileGroup : IDisposable {
-		public bool Contains(Tile tile) {
-			// TODO
-			return false;
-		}
 		public TileGroup(int width, int height) {
 			buffer = new TileCell[width, height];
+			for(int y = 0; y < height; ++y) {
+				for(int x = 0; x < width; ++x)
+					buffer[x, y] = new TileCell();
+			}
 		}
 		public int Width {
 			get { return buffer.GetLength(0); }

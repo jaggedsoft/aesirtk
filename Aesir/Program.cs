@@ -16,7 +16,6 @@ namespace Aesir {
 		private const int FloorTileSourceCount = 16, ObjectTileSourceCount = 19;
 		[STAThread()]
 		static void Main(string[] args) {
-			Tile.LoadNullImage();
 			TileManager floorTileManager, objectTileManager;
 			try {
 				floorTileManager = new TileManager(TileType.FloorTile,

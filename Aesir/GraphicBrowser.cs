@@ -97,7 +97,7 @@ namespace Aesir {
 		/// <summary>
 		///		This abstract class forms the base for <c>FloorTileBrowserPanel</c> and
 		///		<c>ObjectTileBrowserPanel</c>. A <c>TileBrowserPanel</c> presents the user with
-		///		a scrollable view of tiles or objects which can be selected with the mouse.
+		///		a scrollable view of tiles or objects that can be selected with the mouse.
 		/// </summary>
 		private abstract class TileBrowserPanel : Panel {
 			protected int TileWidth {
@@ -109,8 +109,9 @@ namespace Aesir {
 			protected TileBrowserPanel() {
 				DoubleBuffered = true;
 			}
-			protected ITileProvider tileProvider;
+			private ITileProvider tileProvider;
 			public ITileProvider TileProvider {
+				get { return tileProvider; }
 				set {
 					tileProvider = value;
 					OnTileProviderChanged(EventArgs.Empty);
@@ -129,8 +130,14 @@ namespace Aesir {
 				if(SelectionChanged != null) SelectionChanged(this, args);
 			}
 			protected virtual void OnTileProviderChanged(EventArgs args) { }
-			protected abstract void OnScroll(int delta, int value);
+			#region ScrollBar utilities
+			// This utility code makes the ScrollBar for the panel respond to the mousewheel. Deriving
+			// classes must expose their ScrollBar through the abstract ScrollBar property, call
+			// InitializeScrollBar in their constructor (after the ScrollBar has been created), and
+			// then handle scrolling events through the virtual OnScroll handler.
+			protected virtual void OnScroll(int delta, int value) { }
 			protected void InitializeScrollBar() {
+				oldScrollBarValue = ScrollBar.Value;
 				ScrollBar.ValueChanged += delegate(object sender, EventArgs args) {
 					int delta = ScrollBar.Value - oldScrollBarValue;
 					oldScrollBarValue = ScrollBar.Value;
@@ -141,22 +148,71 @@ namespace Aesir {
 				int delta = ScrollBar.SmallChange * (args.Delta / -120);
 				ScrollBar.Value = MathUtil.Clamp(ScrollBar.Value + delta, 0, ScrollBar.Maximum);
 			}
+			private int oldScrollBarValue; // The old scrollbar value is used to obtain a delta
+			protected abstract ScrollBar ScrollBar { get; }
+			#endregion
+			/// <summary>
+			///		<para>
+			///			The <c>TileView</c>, a refinement of <c>CircularBuffer</c>, is used to hold
+			///			references (handles) to the tiles that are being displayed in the panel.
+			///			When a <c>TileView</c> is "advanced" using <c>Advance</c>, the tiles are
+			///			shifted in a direction and new tiles are appended to the front or back of
+			///			the buffer. A <c>TileView</c> may also be rebuilt using <c>Rebuild</c>, which
+			///			can be used to resize the buffer.
+			///		</para>
+			///		<para>
+			///			Most functions that manipulate the <c>TileView</c> are passed a state object,
+			///			whose meaning depends on the semantics of the derived class, which must
+			///			define the method <c>GetTileIndex</c>.
+			///		</para>
+			/// </summary>
 			protected abstract class TileView : CircularBuffer<TileHandle[]> {
+				public TileView(TileBrowserPanel panel) {
+					this.panel = panel;
+				}
+				private TileBrowserPanel panel;
+				protected TileBrowserPanel Panel {
+					get { return panel; }
+				}
 				protected override void Dispose(TileHandle[] element) {
 					if(element == null) return;
 					foreach(TileHandle tile in element) {
 						if(tile != null) tile.Dispose();
 					}
 				}
+				protected override TileHandle[] Create(int index, object state) {
+					TileHandle[] element = new TileHandle[elementCount];
+					for(int elementIndex = 0; elementIndex < elementCount; ++elementIndex) {
+						int tileIndex = GetTileIndex(state, index, elementIndex);
+						// TODO: Priority for this shit?
+						element[elementIndex] = panel.TileProvider.GetTile(tileIndex, 0);
+						element[elementIndex].Load += delegate(object sender, EventArgs args) {
+							panel.Refresh();
+						};
+					}
+					return element;
+				}
+				protected abstract int GetTileIndex(object state, int index, int elementIndex);
+				private int elementCount = 0;
+				protected int ElementCount {
+					get { return elementCount; }
+				}
+				private new void Rebuild(int count, object state) {
+					base.Rebuild(count, state);
+				}
+				public void Resize(int count, int elementCount, object state) {
+					this.elementCount = elementCount;
+					Rebuild(count, state);
+				}
 				public new void Advance(int amount, object state) {
 					if(amount > Count / 2) Rebuild(Count, state);
 					else base.Advance(amount, state);
 				}
 			}
-			private int oldScrollBarValue = 0;
-			protected abstract ScrollBar ScrollBar { get; }
 		}
 		private class FloorTileBrowserPanel : TileBrowserPanel {
+			// This modified TileWidth accessor takes into account the scrollbar on the right
+			// side of the panel.
 			private new int TileWidth {
 				get { return (Width - scrollBar.Width) / Tile.Width; }
 			}
@@ -164,40 +220,17 @@ namespace Aesir {
 				get { return scrollBar; }
 			}
 			private class FloorTileView : TileView {
-				public FloorTileView(FloorTileBrowserPanel panel) {
-					this.panel = panel;
+				public FloorTileView(FloorTileBrowserPanel panel) : base(panel) { }
+				protected override int GetTileIndex(object state, int index, int elementIndex) {
+					return  ((int)state) + (elementIndex + index * ElementCount);
 				}
-				private FloorTileBrowserPanel panel;
-				protected override TileHandle[] Create(int index, object stateObj) {
-					State state = (State)stateObj;
-					TileHandle[] element = new TileHandle[state.Width];
-					for(int elementIndex = 0; elementIndex < state.Width; ++elementIndex) {
-						element[elementIndex] = panel.tileProvider.GetTile(
-							state.Offset * state.Width + elementIndex + index * state.Width, 0);
-						element[elementIndex].Load += delegate(object sender, EventArgs args) {
-							panel.Refresh();
-						};
-					}
-					return element;
-				}
-				public struct State {
-					private int width;
-					private int offset;
-					public State(int width, int offset) {
-						this.width = width;
-						this.offset = offset;
-					}
-					public int Width {
-						get { return width; }
-					}
-					public int Offset {
-						get { return offset; }
-					}
+				public TileHandle this[int x, int y] {
+					get { return this[y][x]; }
 				}
 			}
 			private FloorTileView tileView;
-			private FloorTileView.State GetState() {
-				return new FloorTileView.State(TileWidth, scrollBar.Value);
+			private int TileOffset {
+				get { return scrollBar.Value * TileWidth; }
 			}
 			public FloorTileBrowserPanel() {
 				tileView = new FloorTileView(this);
@@ -207,78 +240,63 @@ namespace Aesir {
 				scrollBar.LargeChange = 2;
 				Controls.Add(scrollBar);
 				InitializeScrollBar();
+				// Refresh the panel whenever the mouse is moved to reflect the highlight box
+				MouseMove += delegate(object sender, MouseEventArgs args) { Refresh(); };
 				ContextMenu = new ContextMenu(new MenuItem[]{ new MenuItem("Lol") }); // TODO
 			}
 			protected override void OnScroll(int delta, int value) {
-				if(tileProvider != null) {
-					tileView.Advance(delta, new FloorTileView.State(TileWidth, value));
+				if(TileProvider != null) {
+					tileView.Advance(delta, TileOffset);
 					Refresh();
 				}
 			}
 			protected override void OnResize(EventArgs args) {
 				base.OnResize(args);
-				if(tileProvider != null) {
-					tileView.Rebuild(TileHeight, GetState());
+				if(TileProvider != null) {
+					tileView.Resize(TileHeight, TileWidth, TileOffset);
 					UpdateScrollBar();
 				}
 			}
 			protected override void OnMouseMove(MouseEventArgs args) {
 				base.OnMouseMove(args);
-				mouseTileLocation = new Point(args.X / Tile.Width, args.Y / Tile.Height);
-				Refresh();
+				clientMousePosition = (Vector)args.Location;
 			}
+			private Vector clientMousePosition = new Vector(0, 0);
 			protected override void OnMouseDown(MouseEventArgs args) {
 				base.OnMouseDown(args);
-				inputState = new InputState_MouseDrag((Vector)args.Location);
+				SetSelectedTile(tileView[TileMousePosition.X, TileMousePosition.Y]);
 			}
-			protected override void OnMouseUp(MouseEventArgs args) {
-				base.OnMouseUp(args);
-				if(inputState is InputState_MouseDrag) {
-					Vector initialLocation = ((InputState_MouseDrag)inputState).InitialLocation,
-						location = (Vector)args.Location;
-					initialLocation /= (Vector)Tile.Size;
-					location /= (Vector)Tile.Size;
-					Vector locationDelta = location - initialLocation;
-					TileGroup selection = new TileGroup(
-						Math.Abs(locationDelta.X), Math.Abs(locationDelta.Y));
-					for(int y = initialLocation.Y; y != location.Y; y += Math.Sign(locationDelta.Y)) {
-						for(int x = initialLocation.X; x != location.X; x += Math.Sign(locationDelta.X))
-							selection[x, y].FloorTile = (TileHandle)tileView[y][x].Clone();
-					}
-					inputState = null;
-				}
+			private Vector TileMousePosition {
+				get { return (clientMousePosition / ((Vector)Tile.Size)); }
 			}
-			private object inputState;
-			private class InputState_MouseDrag {
-				private Vector initialLocation;
-				public Vector InitialLocation {
-					get { return initialLocation; }
-				}
-				public InputState_MouseDrag(Vector initialLocation) {
-					this.initialLocation = initialLocation;
-				}
+			private TileHandle selectedTile;
+			private void SetSelectedTile(TileHandle selectedTile) {
+				if(this.selectedTile != null) this.selectedTile.Dispose();
+				this.selectedTile = (TileHandle)selectedTile.Clone();
+				Refresh();
 			}
 			protected override void OnPaint(PaintEventArgs args) {
 				base.OnPaint(args);
-				for(int rowIndex = 0; rowIndex <= TileHeight; ++rowIndex) {
+				Rectangle? selectedRectangle = null;
+				for(int rowIndex = 0; rowIndex < TileHeight; ++rowIndex) {
 					TileHandle[] row = tileView[rowIndex];
 					for(int columnIndex = 0; columnIndex < TileWidth; ++columnIndex) {
 						TileHandle tile  = row[columnIndex];
 						Point point = new Point(columnIndex * Tile.Width, rowIndex * Tile.Height);
 						if(tile != null) {
 							lock(tile.SyncRoot) {
-								//if(tile.Image != null) {
-									tile.Draw(args.Graphics, point);
-								//}
+								tile.Draw(args.Graphics, point);
+								if(selectedTile != null && tile.Index == selectedTile.Index)
+									selectedRectangle = new Rectangle(point, Tile.Size);
 							}
-								//args.Graphics.DrawImage(tile.Image, point); // TEMP
 						}
 					}
 				}
-				args.Graphics.DrawRectangle(Pens.Black, mouseTileLocation.X * Tile.Width,
-					mouseTileLocation.Y * Tile.Height, Tile.Width, Tile.Height);
+				args.Graphics.DrawRectangle(Pens.Red, new Rectangle(
+					(Point)(TileMousePosition * (Vector)Tile.Size), Tile.Size));
+				if(selectedRectangle != null)
+					args.Graphics.DrawRectangle(Pens.Blue, selectedRectangle.Value);
 			}
-			private Point mouseTileLocation = new Point();
 			private void UpdateScrollBar() {
 				scrollBar.Enabled = true;
 				scrollBar.Maximum = 100; // TODO: Scrollbar update stuff for FloorTile panel thing
