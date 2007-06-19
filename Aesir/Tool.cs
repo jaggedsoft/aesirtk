@@ -9,10 +9,13 @@ namespace Aesir {
 	abstract class Tool {
 		public abstract void Activate(MainForm mainForm);
 		public abstract void Deactivate(MainForm mainForm);
+		public abstract void AddControls(ToolBar toolBar);
 	}
-	class FloorTileTool : Tool {
+	class TileTool : Tool {
 		public enum DragMode { Pencil, Square, Line }
-		public FloorTileTool() { }
+		public TileTool() { }
+		public override void AddControls(ToolBar toolBar) {
+		}
 		public override void Activate(MainForm mainForm) {
 			/*mainForm.MapView.MouseMove += new MouseEventHandler(MapPanel_MouseMove);
 			mainForm.MapView.MouseClick += new MouseEventHandler(MapPanel_MouseClick);

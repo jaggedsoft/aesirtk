@@ -10,13 +10,13 @@ using Aesir.Util;
 using System.Diagnostics;
 
 namespace Aesir {
-	class GraphicBrowser : Form {
-		public GraphicBrowser(ITileProvider floorTileProvider, ITileProvider objectTileProvider) {
+	/*class TileBrowserForm : Form {
+		public TileBrowserForm(ITileProvider floorTileProvider, ITileProvider objectTileProvider) {
 			this.floorTileProvider = floorTileProvider;
 			this.objectTileProvider = objectTileProvider;
 			SuspendLayout();
 			FormBorderStyle = FormBorderStyle.SizableToolWindow;
-			Text = "Graphic Browser";
+			Text = "Tile Browser";
 			tabControl = new TabControl();
 			tabControl.Dock = DockStyle.Fill;
 			tabControl.TabPages.Add(floorTileBrowser = new FloorTileBrowser(this));
@@ -59,6 +59,16 @@ namespace Aesir {
 				}
 			}
 		}
+		public event EventHandler SelectionChanged {
+			add {
+				floorTileBrowser.SelectionChanged += value;
+				objectTileBrowser.SelectionChanged += value;
+			}
+			remove {
+				floorTileBrowser.SelectionChanged -= value;
+				objectTileBrowser.SelectionChanged -= value;
+			}
+		}
 		protected override void OnFormClosing(FormClosingEventArgs args) {
 			settings.SplitterDistance = splitterDistance;
 			settings.Save();
@@ -93,122 +103,6 @@ namespace Aesir {
 			}
 			private ListView listView = new ListView();
 			private ListViewHeader listViewHeader;
-		}
-		/// <summary>
-		///		This abstract class forms the base for <c>FloorTileBrowserPanel</c> and
-		///		<c>ObjectTileBrowserPanel</c>. A <c>TileBrowserPanel</c> presents the user with
-		///		a scrollable view of tiles or objects that can be selected with the mouse.
-		/// </summary>
-		private abstract class TileBrowserPanel : Panel {
-			protected int TileWidth {
-				get { return Width / Tile.Width; }
-			}
-			protected int TileHeight {
-				get { return Height / Tile.Height + 1; }
-			}
-			protected TileBrowserPanel() {
-				DoubleBuffered = true;
-			}
-			private ITileProvider tileProvider;
-			public ITileProvider TileProvider {
-				get { return tileProvider; }
-				set {
-					tileProvider = value;
-					OnTileProviderChanged(EventArgs.Empty);
-				}
-			}
-			private TileGroup selection;
-			public TileGroup Selection {
-				get { return selection; }
-				protected set {
-					selection = value;
-					OnSelectionChanged(EventArgs.Empty);
-				}
-			}
-			public event EventHandler SelectionChanged;
-			protected virtual void OnSelectionChanged(EventArgs args) {
-				if(SelectionChanged != null) SelectionChanged(this, args);
-			}
-			protected virtual void OnTileProviderChanged(EventArgs args) { }
-			#region ScrollBar utilities
-			// This utility code makes the ScrollBar for the panel respond to the mousewheel. Deriving
-			// classes must expose their ScrollBar through the abstract ScrollBar property, call
-			// InitializeScrollBar in their constructor (after the ScrollBar has been created), and
-			// then handle scrolling events through the virtual OnScroll handler.
-			protected virtual void OnScroll(int delta, int value) { }
-			protected void InitializeScrollBar() {
-				oldScrollBarValue = ScrollBar.Value;
-				ScrollBar.ValueChanged += delegate(object sender, EventArgs args) {
-					int delta = ScrollBar.Value - oldScrollBarValue;
-					oldScrollBarValue = ScrollBar.Value;
-					OnScroll(delta, ScrollBar.Value);
-				};
-			}
-			internal virtual new void OnMouseWheel(MouseEventArgs args) {
-				int delta = ScrollBar.SmallChange * (args.Delta / -120);
-				ScrollBar.Value = MathUtil.Clamp(ScrollBar.Value + delta, 0, ScrollBar.Maximum);
-			}
-			private int oldScrollBarValue; // The old scrollbar value is used to obtain a delta
-			protected abstract ScrollBar ScrollBar { get; }
-			#endregion
-			/// <summary>
-			///		<para>
-			///			The <c>TileView</c>, a refinement of <c>CircularBuffer</c>, is used to hold
-			///			references (handles) to the tiles that are being displayed in the panel.
-			///			When a <c>TileView</c> is "advanced" using <c>Advance</c>, the tiles are
-			///			shifted in a direction and new tiles are appended to the front or back of
-			///			the buffer. A <c>TileView</c> may also be rebuilt using <c>Rebuild</c>, which
-			///			can be used to resize the buffer.
-			///		</para>
-			///		<para>
-			///			Most functions that manipulate the <c>TileView</c> are passed a state object,
-			///			whose meaning depends on the semantics of the derived class, which must
-			///			define the method <c>GetTileIndex</c>.
-			///		</para>
-			/// </summary>
-			protected abstract class TileView : CircularBuffer<TileHandle[]> {
-				public TileView(TileBrowserPanel panel) {
-					this.panel = panel;
-				}
-				private TileBrowserPanel panel;
-				protected TileBrowserPanel Panel {
-					get { return panel; }
-				}
-				protected override void Dispose(TileHandle[] element) {
-					if(element == null) return;
-					foreach(TileHandle tile in element) {
-						if(tile != null) tile.Dispose();
-					}
-				}
-				protected override TileHandle[] Create(int index, object state) {
-					TileHandle[] element = new TileHandle[elementCount];
-					for(int elementIndex = 0; elementIndex < elementCount; ++elementIndex) {
-						int tileIndex = GetTileIndex(state, index, elementIndex);
-						// TODO: Priority for this shit?
-						element[elementIndex] = panel.TileProvider.GetTile(tileIndex, 0);
-						element[elementIndex].Load += delegate(object sender, EventArgs args) {
-							panel.Refresh();
-						};
-					}
-					return element;
-				}
-				protected abstract int GetTileIndex(object state, int index, int elementIndex);
-				private int elementCount = 0;
-				protected int ElementCount {
-					get { return elementCount; }
-				}
-				private new void Rebuild(int count, object state) {
-					base.Rebuild(count, state);
-				}
-				public void Resize(int count, int elementCount, object state) {
-					this.elementCount = elementCount;
-					Rebuild(count, state);
-				}
-				public new void Advance(int amount, object state) {
-					if(amount > Count / 2) Rebuild(Count, state);
-					else base.Advance(amount, state);
-				}
-			}
 		}
 		private class FloorTileBrowserPanel : TileBrowserPanel {
 			// This modified TileWidth accessor takes into account the scrollbar on the right
@@ -264,16 +158,25 @@ namespace Aesir {
 			private Vector clientMousePosition = new Vector(0, 0);
 			protected override void OnMouseDown(MouseEventArgs args) {
 				base.OnMouseDown(args);
-				SetSelectedTile(tileView[TileMousePosition.X, TileMousePosition.Y]);
+				SelectedTile = tileView[TileMousePosition.X, TileMousePosition.Y];
 			}
 			private Vector TileMousePosition {
-				get { return (clientMousePosition / ((Vector)Tile.Size)); }
+				get { return (clientMousePosition / (Vector)Tile.Size); }
 			}
-			private TileHandle selectedTile;
-			private void SetSelectedTile(TileHandle selectedTile) {
-				if(this.selectedTile != null) this.selectedTile.Dispose();
-				this.selectedTile = (TileHandle)selectedTile.Clone();
-				Refresh();
+			private TileHandle SelectedTile {
+				get {
+					if(Selection == null) return null;
+					return Selection[0, 0].FloorTile;
+				}
+				set {
+					if(value == null) Selection = null;
+					else {
+						TileGroup selection = new TileGroup(1, 1);
+						selection[0, 0].FloorTile = value;
+						Selection = selection;
+					}
+					Refresh();
+				}
 			}
 			protected override void OnPaint(PaintEventArgs args) {
 				base.OnPaint(args);
@@ -285,17 +188,18 @@ namespace Aesir {
 						Point point = new Point(columnIndex * Tile.Width, rowIndex * Tile.Height);
 						if(tile != null) {
 							lock(tile.SyncRoot) {
-								tile.Draw(args.Graphics, point);
-								if(selectedTile != null && tile.Index == selectedTile.Index)
+								if(SelectedTile != null && tile.Index == SelectedTile.Index) {
+									Tile.DrawInverted(tile, args.Graphics, point);
 									selectedRectangle = new Rectangle(point, Tile.Size);
+								} else Tile.Draw(tile, args.Graphics, point);
 							}
 						}
 					}
 				}
-				args.Graphics.DrawRectangle(Pens.Red, new Rectangle(
+				args.Graphics.DrawRectangle(Pens.White, new Rectangle(
 					(Point)(TileMousePosition * (Vector)Tile.Size), Tile.Size));
 				if(selectedRectangle != null)
-					args.Graphics.DrawRectangle(Pens.Blue, selectedRectangle.Value);
+					args.Graphics.DrawRectangle(Pens.Black, selectedRectangle.Value);
 			}
 			private void UpdateScrollBar() {
 				scrollBar.Enabled = true;
@@ -311,7 +215,7 @@ namespace Aesir {
 			}
 		}
 		private class TileBrowser : TabPage {
-			public TileBrowser(GraphicBrowser graphicBrowser,
+			public TileBrowser(TileBrowserForm tileBrowserForm,
 				TileBrowserPanel tileBrowserPanel, ITileProvider tileProvider) {
 
 				categoryPanel = new CategoryPanel(tileProvider);
@@ -322,14 +226,14 @@ namespace Aesir {
 				splitContainer.Panel2.Controls.Add(tileBrowserPanel);
 				splitContainer.FixedPanel = FixedPanel.Panel1;
 				Controls.Add(splitContainer);
-				this.graphicBrowser = graphicBrowser;
+				this.tileBrowserForm = tileBrowserForm;
 				this.tileBrowserPanel = tileBrowserPanel;
-				graphicBrowser.splitterDistance = splitContainer.SplitterDistance;
+				tileBrowserForm.splitterDistance = splitContainer.SplitterDistance;
 				Enter += delegate(object sender, EventArgs args) {
-					splitContainer.SplitterDistance = graphicBrowser.splitterDistance;
+					splitContainer.SplitterDistance = tileBrowserForm.splitterDistance;
 				};
 				Leave += delegate(object sender, EventArgs args) {
-					graphicBrowser.splitterDistance = splitContainer.SplitterDistance;
+					tileBrowserForm.splitterDistance = splitContainer.SplitterDistance;
 				};
 				tileBrowserPanel.TileProvider = categoryPanel.TileProvider;
 				categoryPanel.TileProviderChanged += delegate(object sender, EventArgs args) {
@@ -346,28 +250,28 @@ namespace Aesir {
 				add { tileBrowserPanel.SelectionChanged += value; }
 				remove { tileBrowserPanel.SelectionChanged -= value; }
 			}
-			protected GraphicBrowser graphicBrowser;
+			protected TileBrowserForm tileBrowserForm;
 			private TileBrowserPanel tileBrowserPanel;
 			private SplitContainer splitContainer = new SplitContainer();
 			private CategoryPanel categoryPanel;
 		}
 		private int splitterDistance;
-		private Settings.GraphicBrowser settings = Settings.GraphicBrowser.Default;
+		private Settings.TileBrowserForm settings = Settings.TileBrowserForm.Default;
 		private class FloorTileBrowser : TileBrowser {
-			public FloorTileBrowser(GraphicBrowser graphicBrowser)
-				: base(graphicBrowser, new FloorTileBrowserPanel(),
-				graphicBrowser.floorTileProvider) {
+			public FloorTileBrowser(TileBrowserForm tileBrowserForm)
+				: base(tileBrowserForm, new FloorTileBrowserPanel(),
+				tileBrowserForm.floorTileProvider) {
 
 				Text = "Floor tiles";
 			}
 		}
 		private class ObjectTileBrowser : TileBrowser {
-			public ObjectTileBrowser(GraphicBrowser graphicBrowser)
-				: base(graphicBrowser, new ObjectTileBrowserPanel(),
-				graphicBrowser.objectTileProvider) {
+			public ObjectTileBrowser(TileBrowserForm tileBrowserForm)
+				: base(tileBrowserForm, new ObjectTileBrowserPanel(),
+				tileBrowserForm.objectTileProvider) {
 
 				Text = "Object tiles";
 			}
 		}
-	}
+	}*/
 }

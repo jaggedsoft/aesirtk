@@ -23,12 +23,15 @@ namespace Aesir.Settings {
             }
         }
         
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("C:\\program files\\nexustk\\data")]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
         public string DataPath {
             get {
                 return ((string)(this["DataPath"]));
+            }
+            set {
+                this["DataPath"] = value;
             }
         }
     }

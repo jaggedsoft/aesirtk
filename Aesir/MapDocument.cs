@@ -8,15 +8,6 @@ using Aesir.Util;
 using Aesir.Nexus;
 
 namespace Aesir {
-	/* TODO abstract class MapFileFormat {
-		public MapFileFormat() { fileFormats.Add(this); }
-		public static ICollection<MapFileFormat> FileFormats {
-			get { return fileFormats; }
-		}
-		private static List<MapFileFormat> fileFormats = new List<MapFileFormat>();
-		public virtual void Export(string path) { }
-		public virtual void Import(string path) { }
-	}*/
 	class MapDocument {
 		public delegate void Visitor(Vector tileLocation, TileCell cell);
 		private class Section {
@@ -27,17 +18,17 @@ namespace Aesir {
 			public override string ToString() {
 				return "Offset:" + offset.ToString();
 			}
-			public Vector ToRelative(Vector absolutePoint) {
+			public Vector VectorToRelative(Vector absolutePoint) {
 				return absolutePoint - (offset * Size);
 			}
-			public Vector ToAbsolute(Vector relativePoint) {
+			public Vector VectorToAbsolute(Vector relativePoint) {
 				return relativePoint + (offset * Size);
 			}
 			public void AcceptVisitorInArea(Visitor visitor, Rectangle area) { }
 			public void AcceptVisitor(Visitor visitor) {
 				for(int y = 0; y < Size; ++y) {
 					for(int x = 0; x < Size; ++x)
-						visitor(ToAbsolute(new Vector(x, y)), cells[x, y]);
+						visitor(VectorToAbsolute(new Vector(x, y)), cells[x, y]);
 				}
 			}
 			public Vector Offset {
@@ -144,7 +135,7 @@ namespace Aesir {
 			get {
 				Vector point = new Vector(x, y);
 				Section section = GetSectionFromPoint(point);
-				Vector relativePoint = section.ToRelative(point);
+				Vector relativePoint = section.VectorToRelative(point);
 				return section.Cells[relativePoint.X, relativePoint.Y];
 			}
 		}

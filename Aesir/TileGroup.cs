@@ -10,14 +10,14 @@ namespace Aesir {
 		public TileHandle FloorTile {
 			set {
 				Debug.Assert(value.TileType == TileType.FloorTile);
-				floorTile = value;
+				floorTile = (TileHandle)value.Clone();
 			}
 			get { return floorTile; }
 		}
 		public TileHandle ObjectTile {
 			set {
 				Debug.Assert(value.TileType == TileType.ObjectTile);
-				objectTile = value;
+				objectTile = (TileHandle)value.Clone();
 			}
 			get { return objectTile; }
 		}

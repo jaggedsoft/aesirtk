@@ -55,9 +55,6 @@ namespace Aesir {
 			else return handle.tile;
 		}
 		#region Wrappers for Tile members
-		public void Draw(Graphics graphics, Point point) {
-			tile.Draw(graphics, point);
-		}
 		public int Index {
 			get { return tile.Index; }
 		}
@@ -116,14 +113,13 @@ namespace Aesir {
 			get { return new Size(Width, Height); }
 		}
 		public const int Width = 48, Height = 48;
-		public void Draw(Graphics graphics, Point point) {
-			lock(syncRoot) {
-				if(image != null) {
-					graphics.DrawImage(image, point);
-					return;
-				}
-			}
-			graphics.FillRectangle(Brushes.Black, new Rectangle(point, Size));
+		public static void Draw(Tile tile, Graphics graphics, Point point) {
+			if(tile.Image != null) graphics.DrawImage(tile.Image, point);
+			else graphics.FillRectangle(Brushes.Black, new Rectangle(point, Size));
+		}
+		public static void DrawInverted(Tile tile, Graphics graphics, Point point) {
+			if(tile.Image != null) GraphicsUtil.DrawImageInverted(graphics, tile.Image, point);
+			else graphics.FillRectangle(Brushes.Black, new Rectangle(point, Size));
 		}
 		private readonly object syncRoot = new Object();
 		public object SyncRoot {
@@ -239,8 +235,11 @@ namespace Aesir {
 			EventHandler tile_PrematureRelease = delegate(object sender, EventArgs args) {
 				Tile senderTile = (Tile)sender;
 				lock(syncRoot) {
-					taskThread.CancelTask(loadingTiles[senderTile.Index].taskHandle);
-					loadingTiles.Remove(senderTile.Index);
+					LoadingTile senderLoadingTile;
+					if(loadingTiles.TryGetValue(senderTile.Index, out senderLoadingTile)) {
+						taskThread.CancelTask(senderLoadingTile.taskHandle);
+						loadingTiles.Remove(senderTile.Index);
+					}
 				}
 			};
 			EventHandler tile_FullRelease = delegate(object sender, EventArgs args) {

@@ -9,20 +9,37 @@ using Microsoft.Win32;
 using Aesir.Util;
 using System.Configuration;
 
-// NOTE: My Computer\HKEY_CURRENT_USER\Software\Nexon\Kingdom of the Winds\Location
 namespace Aesir {
 	class Program {
 		private const string FloorTileSourceTag = "tile", ObjectTileSourceTag = "tilec";
 		private const int FloorTileSourceCount = 16, ObjectTileSourceCount = 19;
+		private static string GetDataPath() {
+			RegistryKey nexusKey = null;
+			string dataPath;
+			try {
+				nexusKey = Registry.CurrentUser.OpenSubKey(@"Software\Nexon\Kingdom of the Winds");
+				if(nexusKey == null) throw new Exception("Could not find NexusTK registry information.");
+				string nexusPath = (string)nexusKey.GetValue("Location");
+				if(nexusPath == null) throw new Exception("Could not find \"Location\" registry key.");
+				dataPath = Path.Combine(nexusPath, "data");
+			} finally {
+				if(nexusKey != null) nexusKey.Close();
+			}
+			return dataPath;
+		}
 		[STAThread()]
 		static void Main(string[] args) {
+			// TEMP: In the final version, the DataPath should only be retreived when necessary
 			TileManager floorTileManager, objectTileManager;
 			try {
+				Settings.Global.Default.DataPath = GetDataPath();
+				if(!Directory.Exists(Settings.Global.Default.DataPath))
+					throw new Exception("Data path does not exist.");
 				floorTileManager = new TileManager(TileType.FloorTile,
 					FloorTileSourceTag, FloorTileSourceCount);
 				objectTileManager = new TileManager(TileType.ObjectTile,
 					ObjectTileSourceTag, ObjectTileSourceCount);
-			} catch(IOException exception) {
+			} catch(Exception exception) {
 				MessageBox.Show(exception.Message);
 				// TODO: Descriptive error message and option to choose a data path manually.
 				return;

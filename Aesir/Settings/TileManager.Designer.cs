@@ -23,12 +23,15 @@ namespace Aesir.Settings {
             }
         }
         
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("700")]
         public int ReleasePeriod {
             get {
                 return ((int)(this["ReleasePeriod"]));
+            }
+            set {
+                this["ReleasePeriod"] = value;
             }
         }
     }

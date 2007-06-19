@@ -1,8 +1,8 @@
 ﻿<?xml version='1.0' encoding='utf-8'?>
-<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Aesir.Settings" GeneratedClassName="TileManagerBase">
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Aesir.Settings" GeneratedClassName="TileManager">
   <Profiles />
   <Settings>
-    <Setting Name="ReleasePeriod" Type="System.Int32" Scope="Application">
+    <Setting Name="ReleasePeriod" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">700</Value>
     </Setting>
   </Settings>

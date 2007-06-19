@@ -10,9 +10,9 @@ namespace Aesir.Util {
 			this.y = y;
 		}
 		public object Clone() { return MemberwiseClone(); }
-		public override bool Equals(object obj) {
-			if(obj.GetType() != typeof(Vector)) return false;
-			return ((Vector)obj) == this;
+		public override bool Equals(object other) {
+			if(other.GetType() != typeof(Vector)) return false;
+			return (Vector)other == this;
 		}
 		public override int GetHashCode() {
 			throw new NotImplementedException();

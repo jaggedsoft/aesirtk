@@ -9,11 +9,11 @@ using Aesir.Util;
 
 namespace Aesir {
 	class MapView : Panel {
-		private delegate void RefreshDelegate();
+		//private delegate void RefreshDelegate();
 		public MapView(MainForm mainForm) {
 			DoubleBuffered = true;
-			RefreshDelegate refreshDelegate = new RefreshDelegate(delegate() { Refresh(); });
-			for(int y = 0; y < 40; ++y) {
+			// TEMP RefreshDelegate refreshDelegate = new RefreshDelegate(delegate() { Refresh(); });
+			/* for(int y = 0; y < 40; ++y) {
 				for(int x = 0; x < 40; ++x) {
 					TileHandle floorTile = mainForm.floorTileProvider.GetTile(x + y * 40, 1);
 					mapDocument[x, y].FloorTile = floorTile;
@@ -22,14 +22,28 @@ namespace Aesir {
 						Invoke(refreshDelegate);
 					};
 				}
-			}
+			}*/
 			mainForm.MouseWheel += new MouseEventHandler(mainForm_MouseWheel);
 			camera = new Camera(this);
+		}
+		public Vector TileMousePosition {
+			get { return new Vector(); } // TODO: MapView.TileMousePosition
 		}
 		void mainForm_MouseWheel(object sender, MouseEventArgs args) {
 			camera.Zoom((float)args.Delta / (120 * 4), (Vector)args.Location);
 			Refresh();
 		}
+		/// <summary>
+		///		Converts a point from client coordinates to world tile coordinates.
+		/// </summary>
+		public Vector VectorToTile(Vector point) {
+			Vector world = camera.VectorToWorld(point);
+			return new Vector(
+				MathUtil.CeilingDivide(world.X, Tile.Width),
+				MathUtil.CeilingDivide(world.Y, Tile.Height));
+		}
+		public event PaintEventHandler PaintClientOverlay;
+		public event PaintEventHandler PaintWorldOverlay;
 		protected override void OnPaint(PaintEventArgs args) {
 			base.OnPaint(args);
 			GraphicsState savedState = args.Graphics.Save();
@@ -37,13 +51,16 @@ namespace Aesir {
 			mapDocument.AcceptVisitor(delegate(Vector point, TileCell cell) {
 				if(cell.FloorTile != null) {
 					lock(cell.FloorTile.SyncRoot) {
-						Point imagePoint = (Point)(point * (Vector)Tile.Size);
-						//args.Graphics.DrawImage(cell.FloorTile.Image, imagePoint);
-						cell.FloorTile.Draw(args.Graphics, imagePoint);
+						Point drawPoint = (Point)(point * (Vector)Tile.Size);
+						Tile.Draw(cell.FloorTile, args.Graphics, drawPoint);
 					}
 				}
 			});
+			// TEMP: Purple box acts as a landmark for now
+			args.Graphics.FillRectangle(Brushes.Purple, new Rectangle(new Point(0, 0), Tile.Size));
+			if(PaintWorldOverlay != null) PaintWorldOverlay(this, args);
 			args.Graphics.Restore(savedState);
+			if(PaintClientOverlay != null) PaintClientOverlay(this, args);
 		}
 		enum PanState { Pending, Active, None };
 		PanState panState = PanState.None;
@@ -77,22 +94,21 @@ namespace Aesir {
 				Refresh();
 			}
 			lastMousePosition = (Vector)args.Location;
-			// TEMP
-			//Vector center = new Vector(Width / 2, Height / 2);
-			//Console.WriteLine(((Vector)args.Location - center) / camera.scale - camera.translate);
-			//Console.WriteLine(camera.ScreenToWorld(lastMousePosition));
 		}
 		private Vector lastMousePosition = new Vector(0, 0);
 		private class Camera {
-			public float scale = 1; // TEMP: Should be private
-			public float Scale { set { scale = value; } }
-			// Translation is expressed in world units (pixels)
-			public Vector translate = new Vector(0, 0); // TEMP: Should be private
+			private float scale = 1;
+			public float Scale {
+				set { scale = MathUtil.Clamp(value, ScaleMin, ScaleMax); }
+			}
+			// Translation is expressed in absolute world units
+			private Vector translate = new Vector(0, 0);
 			public void Pan(int amountX, int amountY) {
 				translate -= new Vector(amountX, amountY) / scale;
 			}
 			public const float ScaleMax = 1, ScaleMin = (float)0.5;
-			public Vector ScreenToWorld(Vector point) {
+			// Converts a point from client coordinates to world coordinates
+			public Vector VectorToWorld(Vector point) {
 				return (point - center) / scale - translate;
 			}
 			public void Zoom(float amount, Vector target) {
