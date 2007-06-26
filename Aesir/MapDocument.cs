@@ -15,9 +15,6 @@ namespace Aesir {
 			public TileCell[,] Cells {
 				get { return cells; }
 			}
-			public override string ToString() {
-				return "Offset:" + offset.ToString();
-			}
 			public Vector VectorToRelative(Vector absolutePoint) {
 				return absolutePoint - (offset * Size);
 			}

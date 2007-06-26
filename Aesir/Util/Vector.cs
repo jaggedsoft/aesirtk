@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Drawing;
+using System.Diagnostics;
 
 namespace Aesir.Util {
+	[DebuggerDisplay("X = {X}, Y = {Y}")]
 	struct Vector : ICloneable {
 		public Vector(int x, int y) {
 			this.x = x;

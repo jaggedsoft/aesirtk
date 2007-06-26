@@ -6,13 +6,20 @@ using System.IO;
 namespace Aesir.Nexus {
 	class ArchiveEntry {
 		private int offset;
+		private string name;
+		public string Name {
+			get { return name; }
+		}
 		/// <summary>
 		///		The absolute offset to this file in the archive file.
 		///	</summary>
 		public int Offset {
 			get { return offset; }
 		}
-		internal ArchiveEntry(int offset) { this.offset = offset; }
+		internal ArchiveEntry(string name, int offset) {
+			this.name = name;
+			this.offset = offset;
+		}
 	}
 	/// <summary>
 	///		Information about a Nexus archive. Nexus stores graphics data in simple uncompressed
@@ -20,12 +27,15 @@ namespace Aesir.Nexus {
 	/// </summary>
 	/// <remarks>
 	///		Use the <c>ArchiveHeader.GetEntry</c> method to get a file entry, and then use the
-	///		<c>ArchiveHeader.Entry.Offset</c> property to determine where to seek to find the file data.
+	///		<c>ArchiveEntry.Offset</c> property to determine where to seek to find the file data.
 	/// </remarks>
 	class ArchiveHeader {
 		private Dictionary<string, ArchiveEntry> entries;
 		public ICollection<string> EntryNames {
 			get { return entries.Keys; }
+		}
+		public IDictionary<string, ArchiveEntry> Entries {
+			get { return entries; }
 		}
 		public ArchiveEntry GetEntry(string targetEntryName) {
 			if(entries == null) throw new InvalidOperationException();
@@ -39,6 +49,9 @@ namespace Aesir.Nexus {
 			BinaryReader binaryReader = new BinaryReader(stream);
 			entries = new Dictionary<string, ArchiveEntry>();
 			// Read the length-prefixed list of file entries
+			// The count stored at the beginning of the file includes a bogus file entry (the last
+			// one), whose name is a series of nulls, and whose size represents the size of the
+			// entire archive. To get the number of non-bogus entries, subtract 1 from this count.
 			int count = (int)(binaryReader.ReadUInt32() - 1);
 			for(int index = 0; index < count; ++index) {
 				int offset = (int)binaryReader.ReadUInt32();
@@ -48,7 +61,7 @@ namespace Aesir.Nexus {
 				// does not take the null-terminator into account
 				Array.Resize<byte>(ref nameBuffer, Array.IndexOf<byte>(nameBuffer, 0));
 				string name = Encoding.ASCII.GetString(nameBuffer);
-				entries.Add(name, new ArchiveEntry(offset));
+				entries.Add(name, new ArchiveEntry(name, offset));
 			}
 		}
 		public ArchiveHeader() { }

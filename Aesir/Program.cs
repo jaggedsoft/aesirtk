@@ -27,6 +27,7 @@ namespace Aesir {
 			}
 			return dataPath;
 		}
+		public static TileManager TEMP_floorTileManager; // TEMP: Global TileManager for convenience
 		[STAThread()]
 		static void Main(string[] args) {
 			// TEMP: In the final version, the DataPath should only be retreived when necessary
@@ -44,6 +45,7 @@ namespace Aesir {
 				// TODO: Descriptive error message and option to choose a data path manually.
 				return;
 			}
+			TEMP_floorTileManager = floorTileManager;
 			MainForm mainForm = new MainForm(floorTileManager, objectTileManager);
 			Application.Run(mainForm);
 			Settings.Global.Default.Save();

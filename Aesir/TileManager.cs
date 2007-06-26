@@ -17,11 +17,12 @@ namespace Aesir {
 	enum TileType { FloorTile, ObjectTile };
 	/// <summary>
 	///		A <c>TileHandle</c> is used to refer to a <c>Tile</c> that was retrieved from a
-	///		<c>TileManager</c>.
+	///		<c>TileManager</c>. Although you can implicitly cast to a <c>Tile</c> to get the
+	///		underlying <c>Tile</c>, it is more convenient to use the method wrappers provided
+	///		by the <c>TileHandle</c> class.
 	/// </summary>
-	// This class is part of a reference counted tile management mechanism. In the constructor,
-	// this class increments the reference count of the referenced tile. In the Dispose method,
-	// this class decrements the reference count.
+	// This class is part of a reference counted tile management mechanism. The refcount for the
+	// underlying tile is incremented in the constructor, and decremented in the Dispose method.
 	class TileHandle : IDisposable, ICloneable {
 		#region Refcounting and IDisposable implementation
 		internal TileHandle(Tile tile) {
@@ -41,19 +42,6 @@ namespace Aesir {
 		}
 		private bool disposed = false;
 		#endregion
-		public object Clone() {
-			return new TileHandle(tile);
-		}
-		public override bool Equals(object obj) {
-			return Index == ((TileHandle)obj).Index;
-		}
-		public override int GetHashCode() {
-			return tile.Index.GetHashCode();
-		}
-		public static implicit operator Tile(TileHandle handle) {
-			if(handle == null) throw new InvalidCastException("Cannot cast a null TileHandle.");
-			else return handle.tile;
-		}
 		#region Wrappers for Tile members
 		public int Index {
 			get { return tile.Index; }
@@ -72,8 +60,22 @@ namespace Aesir {
 			get { return tile.TileType; }
 		}
 		#endregion
+		public object Clone() {
+			return new TileHandle(tile);
+		}
+		public override bool Equals(object obj) {
+			return Index == ((TileHandle)obj).Index;
+		}
+		public override int GetHashCode() {
+			return tile.Index.GetHashCode();
+		}
+		public static implicit operator Tile(TileHandle handle) {
+			if(handle == null) throw new InvalidCastException("Cannot cast a null TileHandle.");
+			else return handle.tile;
+		}
 		private Tile tile;
 	}
+	[DebuggerDisplay("Index = {Index}")]
 	class Tile : IDisposable {
 		public event EventHandler Load;
 		public event EventHandler Release;
@@ -114,12 +116,16 @@ namespace Aesir {
 		}
 		public const int Width = 48, Height = 48;
 		public static void Draw(Tile tile, Graphics graphics, Point point) {
-			if(tile.Image != null) graphics.DrawImage(tile.Image, point);
-			else graphics.FillRectangle(Brushes.Black, new Rectangle(point, Size));
+			lock(tile.SyncRoot) {
+				if(tile.Image != null) graphics.DrawImage(tile.Image, point);
+				else graphics.FillRectangle(Brushes.Black, new Rectangle(point, Size));
+			}
 		}
 		public static void DrawInverted(Tile tile, Graphics graphics, Point point) {
-			if(tile.Image != null) GraphicsUtil.DrawImageInverted(graphics, tile.Image, point);
-			else graphics.FillRectangle(Brushes.Black, new Rectangle(point, Size));
+			lock(tile.SyncRoot) {
+				if(tile.Image != null) GraphicsUtil.DrawImageInverted(graphics, tile.Image, point);
+				else graphics.FillRectangle(Brushes.Black, new Rectangle(point, Size));
+			}
 		}
 		private readonly object syncRoot = new Object();
 		public object SyncRoot {
@@ -143,13 +149,15 @@ namespace Aesir {
 			get { return refcount; }
 			set {
 				refcount = value;
-				if(refcount <= 0) OnRelease(EventArgs.Empty);
+				if(refcount <= 0) {
+					OnRelease(EventArgs.Empty);
+					Dispose();
+				}
 			}
 		}
 		public TileType TileType {
 			get { return tileType; }
 		}
-		public override string ToString() { return "{Index:" + index + "}"; }
 	}
 	class TileManagerException : Exception { } // TODO: Use this?
 	interface ITileProvider {
@@ -165,9 +173,12 @@ namespace Aesir {
 			}, null, 0, ReleasePeriod);
 		}
 		private static event EventHandler ReleaseTimerTick;
-		// This timer is used to delay the releasing of tiles
+		// This timer is used to raise the ReleaseTimerTick event, which periodically releases tiles
+		// that are no longer referenced. Tiles are not immediately released because there are cases
+		// where the program releases a TileHandle, only to request it again a millisecond later --
+		// for example, when the TileBrowser is resized.
 		private static System.Threading.Timer releaseTimer;
-		// The taskThread is used to load tiles in the background. It is shared by all TileManager
+		// The TaskThread is used to load tiles in the background. It is shared by all TileManager
 		// instances.
 		protected static TaskThread taskThread = new TaskThread();
 		public static int ReleasePeriod {
@@ -178,9 +189,10 @@ namespace Aesir {
 		#endregion
 		private TileType tileType;
 		public TileManager(TileType tileType, string sourceTag, int sourceCount) {
-			ReleaseTimerTick += delegate(object sender, EventArgs args) { Release(); };
+			ReleaseTimerTick += delegate(object sender, EventArgs args) { ReleaseTiles(); };
 			this.tileType = tileType;
 
+			// TODO: Clean up the API for this shit?
 			string dataPath = Settings.Global.Default.DataPath;
 			string archivePath = Path.Combine(dataPath, "tile.dat");
 			string paletteCollectionName = sourceTag + "." + PaletteCollection.FileExtension,
@@ -203,7 +215,8 @@ namespace Aesir {
 			blankTile.Create((Image)BlankImage.Clone());
 			blankTile.Index = 0;
 			tiles.Add(0, blankTile);
-			// Artificially increment the refcount for blankTile so it is never released
+			// Artificially increment the refcount for blankTile so it is never disposed until it
+			// is garbage collected.
 			++blankTile.Refcount;
 		}
 		public int TileCount {
@@ -252,7 +265,7 @@ namespace Aesir {
 					loadingTiles.Remove(senderTile.Index);
 					if(tiles.ContainsKey(senderTile.Index)) {
 						if(tiles[senderTile.Index].Refcount != 0) {
-							Debug.Fail(""); // TODO: Document?
+							Debug.Fail(""); // TODO: THIS IS A BIG BUG SHIT
 						} else tiles[senderTile.Index].Dispose();
 					}
 					tiles[senderTile.Index] = senderTile;
@@ -270,7 +283,7 @@ namespace Aesir {
 			lock(syncRoot) loadingTiles.Add(tile.Index, loadingTile);
 			return new TileHandle(tile);
 		}
-		private void Release() {
+		private void ReleaseTiles() {
 			lock(syncRoot) {
 				foreach(int index in releasedTiles) {
 					tiles[index].Dispose();
@@ -279,6 +292,8 @@ namespace Aesir {
 				releasedTiles.Clear();
 			}
 		}
+		// Used to synchronize access to the various collections associated with the TileManager
+		// instance, including releasedTiles, loadingTiles, and tiles.
 		private readonly object syncRoot = new Object();
 		public int LoadedTileCount {
 			get { return tiles.Count; }

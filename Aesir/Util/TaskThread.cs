@@ -5,6 +5,9 @@ using System.ComponentModel;
 using C5;
 
 namespace Aesir.Util {
+	// TODO: Clean up this API? The nested classes thing is gay, maybe return an object instead
+	// of a TaskHandle?
+	interface ITaskHandle { } // TODO: Use this?
 	class TaskThread {
 		public delegate object TaskRun();
 		public delegate void TaskCompleted(object args);
@@ -52,8 +55,8 @@ namespace Aesir.Util {
 			}
 		}
 		public TaskThread() {
-			thread.RunWorkerCompleted +=new RunWorkerCompletedEventHandler(thread_RunWorkerCompleted);
-			thread.DoWork += new DoWorkEventHandler(thread_DoWork);
+			thread.RunWorkerCompleted += thread_RunWorkerCompleted;
+			thread.DoWork += thread_DoWork;
 		}
 		public TaskHandle AddTask(TaskRun taskRun, TaskCompleted taskCompleted) {
 			return AddTask(taskRun, taskCompleted, 0);

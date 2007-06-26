@@ -46,11 +46,11 @@ namespace Aesir {
 			toolStrip.Items.Add(new ToolStripButton("Square"));
 			Controls.Add(toolStrip);
 
-			Form test = new Form();
+			testForm = new Form();
 			FloorTileBrowser shit = new FloorTileBrowser(floorTileProvider);
 			shit.Dock = DockStyle.Fill;
-			test.Controls.Add(shit);
-			test.Show();
+			testForm.Controls.Add(shit);
+			testForm.Show();
 			// TEMP: stuff
 			/*mapView.PaintWorldOverlay += delegate(object sender, PaintEventArgs args) {
 				Console.WriteLine(mapView.VectorToTile(mousePosition));
@@ -61,6 +61,7 @@ namespace Aesir {
 				mapView.Refresh();
 			};*/
 		}
+		private Form testForm; // TEMP
 		//private Vector mousePosition; // TEMP
 		private ToolStrip toolStrip = new ToolStrip();
 		private MapView mapView;
@@ -78,6 +79,7 @@ namespace Aesir {
 		private Settings.MainForm settings = Settings.MainForm.Default;
 		protected override void OnFormClosing(FormClosingEventArgs args) {
 //			tileBrowserForm.Close();
+			testForm.Close(); // TEMP AGAIN LOL
 			settings.Save();
 			base.OnFormClosing(args);
 		}

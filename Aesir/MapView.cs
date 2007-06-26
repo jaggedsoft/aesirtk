@@ -23,7 +23,8 @@ namespace Aesir {
 					};
 				}
 			}*/
-			mainForm.MouseWheel += new MouseEventHandler(mainForm_MouseWheel);
+			// TODO: Make this thing selected, then I won't have to hook into the main form!
+			mainForm.MouseWheel += mainForm_MouseWheel;
 			camera = new Camera(this);
 		}
 		public Vector TileMousePosition {

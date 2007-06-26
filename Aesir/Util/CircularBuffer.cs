@@ -4,8 +4,13 @@ using System.Text;
 using System.Windows.Forms;
 
 namespace Aesir.Util {
+	/// <summary>
+	///		
+	/// </summary>
+	/// <typeparam name="T"></typeparam>
 	abstract class CircularBuffer<T> : IEnumerable<T> {
 		private int Clamp(int value) {
+			if(buffer.Count == 0) return value;
 			while(value < 0) value += buffer.Count;
 			return (value % buffer.Count);
 		}
@@ -21,7 +26,7 @@ namespace Aesir.Util {
 					element = Create(amountDirty - index - 1, state);
 					bufferIndex = Clamp(headIndex - index - 1);
 				}
-				Dispose(buffer[bufferIndex]);
+				if(buffer[bufferIndex] != null) Dispose(buffer[bufferIndex]);
 				buffer[bufferIndex] = element;
 			}
 			headIndex = Clamp(headIndex + amount);
@@ -32,7 +37,9 @@ namespace Aesir.Util {
 			get { return buffer[Clamp(index + headIndex)]; }
 		}
 		public void Rebuild(int count, object state) {
-			foreach(T element in this) Dispose(element);
+			foreach(T element in this) {
+				if(element != null) Dispose(element);
+			}
 			headIndex = 0;
 			while(buffer.Count > count) buffer.RemoveAt(0);
 			for(int index = 0; index < buffer.Count; ++index)
