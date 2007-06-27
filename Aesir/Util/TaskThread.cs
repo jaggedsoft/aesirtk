@@ -5,82 +5,99 @@ using System.ComponentModel;
 using C5;
 
 namespace Aesir.Util {
-	// TODO: Clean up this API? The nested classes thing is gay, maybe return an object instead
-	// of a TaskHandle?
-	interface ITaskHandle { } // TODO: Use this?
+	public delegate object TaskWorker();
+	public delegate void TaskCompleted(object args);
+	class InvalidTaskHandleException : Exception {
+		public InvalidTaskHandleException(string message) : base(message) { }
+		public InvalidTaskHandleException() : base("The task handle is invalid.") { }
+	}
+	interface ITaskHandle { }
 	class TaskThread {
-		public delegate object TaskRun();
-		public delegate void TaskCompleted(object args);
-		internal class Task : IComparable {
-			public TaskRun taskRun;
-			public TaskCompleted taskCompleted;
-			public int priority;
-			public IPriorityQueueHandle<Task> priorityQueueHandle;
-			public Task(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
-				this.taskRun = taskRun;
+		private class Task {
+			private TaskWorker taskWorker;
+			private TaskCompleted taskCompleted;
+			public void TaskWorker() {
+				result = taskWorker();
+			}
+			public void TaskCompleted() {
+				lock(this) {
+					if(!cancelled)
+						taskCompleted(result);
+				}
+			}
+			private int priority;
+			public int Priority {
+				get { return priority; }
+				set { priority = value; }
+			}
+			public void Cancel() {
+				lock(this) cancelled = true;
+			}
+			// This flag is used to cancel a task in progress. Access to this flag is synchronized
+			// by this.
+			private bool cancelled;
+			private object result = null; // The return value of taskWorker
+			public Task(TaskWorker taskWorker, TaskCompleted taskCompleted, int priority) {
+				this.taskWorker = taskWorker;
 				this.taskCompleted = taskCompleted;
 				this.priority = priority;
-				number = nextNumber;
-				nextNumber++;
-			}
-			private int number;
-			private static int nextNumber = 0;
-			public int CompareTo(object obj) {
-				return priority.CompareTo(((Task)obj).priority);
-			}
-			public override bool Equals(object obj) {
-				Task taskObj = obj as Task;
-				if(taskObj == null) return false;
-				return taskObj.number == number;
-			}
-			public override int GetHashCode() {
-				return priority.GetHashCode();
-			}
-			public override string ToString() {
-				return "{Priority:" + priority + "}";
 			}
 		}
-		private class TaskResult {
-			public object result;
+		// Used to order tasks based on their priority
+		private class TaskComparer : IComparer<Task> {
+			public int Compare(Task left, Task right) {
+				return left.Priority.CompareTo(right.Priority);
+			}
+		}
+		private class TaskHandle : ITaskHandle {
+			public IPriorityQueueHandle<Task> handle;
 			public Task task;
-			public TaskResult(object result, Task task) {
-				this.result = result;
+			public TaskHandle(Task task, IPriorityQueueHandle<Task> handle) {
 				this.task = task;
+				this.handle = handle;
 			}
 		}
-		public class TaskHandle {
-			internal IPriorityQueueHandle<Task> priorityQueueHandle;
-			internal TaskHandle(IPriorityQueueHandle<Task> priorityQueueHandle) {
-				this.priorityQueueHandle = priorityQueueHandle;
-			}
-		}
+		// Used to synchronize access to the tasks collection
+		private readonly object syncRoot = new Object();
+		private IPriorityQueue<Task> tasks;
+		private BackgroundWorker thread = new BackgroundWorker();
 		public TaskThread() {
+			tasks = new IntervalHeap<Task>(new TaskComparer());
 			thread.RunWorkerCompleted += thread_RunWorkerCompleted;
 			thread.DoWork += thread_DoWork;
 		}
-		public TaskHandle AddTask(TaskRun taskRun, TaskCompleted taskCompleted) {
-			return AddTask(taskRun, taskCompleted, 0);
+		public ITaskHandle AddTask(TaskWorker taskWorker, TaskCompleted taskCompleted) {
+			return AddTask(taskWorker, taskCompleted, 0);
 		}
-		public TaskHandle AddTask(TaskRun taskRun, TaskCompleted taskCompleted, int priority) {
-			Task task = new Task(taskRun, taskCompleted, priority);
-			lock(syncRoot) tasks.Add(ref task.priorityQueueHandle, task);
+		public ITaskHandle AddTask(TaskWorker taskWorker, TaskCompleted taskCompleted, int priority) {
+			Task task = new Task(taskWorker, taskCompleted, priority);
+			IPriorityQueueHandle<Task> handle = null;
+			lock(syncRoot) tasks.Add(ref handle, task);
 			UpdateBackgroundWorker();
-			return new TaskHandle(task.priorityQueueHandle);
+			return new TaskHandle(task, handle);
 		}
-		public void PromoteTask(TaskHandle taskHandle, int priority) {
+		/// <exception cref="InvalidTaskHandleException" />
+		public void PromoteTask(ITaskHandle taskHandle, int priority) {
+			IPriorityQueueHandle<Task> handle = ((TaskHandle)taskHandle).handle;
 			Task task;
-			if(!tasks.Find(taskHandle.priorityQueueHandle, out task)) return;
-			if(priority > task.priority) return;
 			lock(syncRoot) {
-				tasks.Delete(taskHandle.priorityQueueHandle);
-				task.priority = priority;
-				tasks.Add(task);
+				if(!tasks.Find(handle, out task)) throw new InvalidTaskHandleException();
+				if(priority > task.Priority) return; // Don't allow clients to demote tasks
+				tasks.Delete(handle);
+				task.Priority = priority;
+				tasks.Add(ref handle, task);
 			}
+			((TaskHandle)taskHandle).handle = handle;
 		}
-		public void CancelTask(TaskHandle taskHandle) {
+		public void CancelTask(ITaskHandle taskHandle) {
+			IPriorityQueueHandle<Task> handle = ((TaskHandle)taskHandle).handle;
 			try {
-				lock(syncRoot) tasks.Delete(taskHandle.priorityQueueHandle);
-			}  catch(InvalidPriorityQueueHandleException) { }
+				lock(syncRoot) tasks.Delete(handle);
+			} catch(InvalidPriorityQueueHandleException) {
+				// Silence the error. The task might be currently executing. Calling Cancel() should
+				// handle it.
+			}
+			((TaskHandle)taskHandle).task.Cancel();
 		}
 		private void UpdateBackgroundWorker() {
 			lock(syncRoot) {
@@ -89,17 +106,15 @@ namespace Aesir.Util {
 			}
 		}
 		private void thread_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs args) {
-			TaskResult taskResult = (TaskResult)args.Result;
-			taskResult.task.taskCompleted(taskResult.result);
+			Task task = (Task)args.Result;
+			task.TaskCompleted();
 			UpdateBackgroundWorker();
 		}
 		private void thread_DoWork(object sender, DoWorkEventArgs args) {
 			Task task = (Task)args.Argument;
-			args.Result = new TaskResult(task.taskRun(), task);
+			task.TaskWorker();
+			args.Result = task;
 			if(thread.CancellationPending) args.Cancel = true;
 		}
-		private readonly object syncRoot = new Object();
-		private IPriorityQueue<Task> tasks = new IntervalHeap<Task>();
-		private BackgroundWorker thread = new BackgroundWorker();
 	}
 }

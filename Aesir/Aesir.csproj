@@ -76,6 +76,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="TileGroup.cs" />
+    <Compile Include="Util\FormatUtil.cs" />
     <Compile Include="Util\GraphicsUtil.cs" />
     <Compile Include="Util\InputDialog.cs">
       <SubType>Form</SubType>

@@ -8,6 +8,8 @@ using Aesir.Nexus;
 using Microsoft.Win32;
 using Aesir.Util;
 using System.Configuration;
+using System.Threading;
+using System.Diagnostics;
 
 namespace Aesir {
 	class Program {
@@ -45,6 +47,9 @@ namespace Aesir {
 				// TODO: Descriptive error message and option to choose a data path manually.
 				return;
 			}
+			File.Delete("Aesir.log");
+			//Trace.Listeners.Add(new ConsoleTraceListener());
+			Trace.Listeners.Add(new TextWriterTraceListener("Aesir.log"));
 			TEMP_floorTileManager = floorTileManager;
 			MainForm mainForm = new MainForm(floorTileManager, objectTileManager);
 			Application.Run(mainForm);
