@@ -25,7 +25,10 @@ namespace Aesir {
 			categoryPanel = new CategoryPanel(categoryManager, tileProvider, viewerPanel);
 			try {
 				categoryManager.Import(ConfigFileName);
-			} catch(FileNotFoundException) { }
+			} catch(FileNotFoundException) {
+				// Ignore the error. There isn't a configuration file, so the CategoryManager will
+				// just start from scratch.
+			}
 			// Setup the SplitContainer. The TileBrowser consists of two panes: CategoryPanel on the
 			// left, ViewerPanelBase on the right.
 			splitContainer.Panel1.Controls.Add(categoryPanel);

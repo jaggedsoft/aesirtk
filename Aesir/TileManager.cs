@@ -1,25 +1,14 @@
 using System;
-using System.Text;
 using System.Drawing;
 using System.Diagnostics;
 using System.IO;
-using System.ComponentModel;
-using System.Collections;
-using System.Threading;
 using Aesir.Nexus;
 using Aesir.Util;
-using System.Drawing.Imaging;
 using System.Configuration;
-using System.Reflection;
 using C5;
 
 namespace Aesir {
 	enum TileType { FloorTile, ObjectTile };
-	static class LogUtil {
-		public static void Log(string message) {
-			Trace.WriteLine(string.Format("{{Thread {0}", Thread.CurrentThread.ManagedThreadId) + "} : " + message);
-		}
-	}
 	/// <summary>
 	///		A <c>TileHandle</c> is used to refer to a <c>Tile</c> that was retrieved from a
 	///		<c>TileManager</c>. Although you can implicitly cast to a <c>Tile</c> to get the
@@ -28,6 +17,7 @@ namespace Aesir {
 	/// </summary>
 	// This class is part of a reference counted tile management mechanism. The refcount for the
 	// underlying tile is incremented in the constructor, and decremented in the Dispose method.
+	[DebuggerDisplay("Index = {Index}, TileType = {TileType}")]
 	class TileHandle : IDisposable, ICloneable {
 		#region Refcounting and IDisposable implementation
 		internal TileHandle(Tile tile) {
@@ -80,23 +70,12 @@ namespace Aesir {
 		}
 		private Tile tile;
 	}
-	[DebuggerDisplay("Index = {Index}")]
+	[DebuggerDisplay("Index = {Index}, TileType = {TileType}")]
 	class Tile : IDisposable {
-		public event EventHandler RealRelease;
-		public event EventHandler Release {
-			add {
-				LogUtil.Log(string.Format("{0} -> Added \"Release\" handler", this));
-				RealRelease += value;
-			}
-			remove {
-				LogUtil.Log(string.Format("{0} -> Removed \"Release\" handler", this));
-				RealRelease -= value;
-			}
-		}
+		public event EventHandler Release;
 		public event EventHandler Load;
 		internal void Create(Image image) {
-			LogUtil.Log(string.Format("{0} -> Create()", this));
-			lock(syncRoot) this.image = image;
+			lock(SyncRoot) this.image = image;
 			loaded = true;
 			OnLoad(EventArgs.Empty);
 		}
@@ -107,12 +86,11 @@ namespace Aesir {
 			}
 		}
 		internal virtual void OnRelease(EventArgs args) {
-			LogUtil.Log(string.Format("{0} -> OnRelease()", this));
-			if(RealRelease != null) RealRelease(this, args);
+			if(Release != null) Release(this, args);
 		}
-		public Tile(TileType tileType) {
+		public Tile(TileType tileType, int index) {
 			this.tileType = tileType;
-			id = nextId++;
+			this.index = index;
 		}
 		#region IDisposable implementation
 		public void Dispose() {
@@ -128,9 +106,10 @@ namespace Aesir {
 				}
 			}
 		}
-		private bool disposed = false, loaded = false;
+		private bool disposed = false;
 		~Tile() { Dispose(false); }
 		#endregion
+		#region Static members
 		public static Size Size {
 			get { return new Size(Width, Height); }
 		}
@@ -147,14 +126,13 @@ namespace Aesir {
 				else graphics.FillRectangle(Brushes.Black, new Rectangle(point, Size));
 			}
 		}
-		private readonly object syncRoot = new Object();
-		public object SyncRoot {
-			get { return syncRoot; }
-		}
+		#endregion
+		public readonly object SyncRoot = new Object();
 		private int index;
 		protected Image image = null;
 		private int refcount = 0;
 		private TileType tileType;
+		private bool loaded = false;
 		public Image Image {
 			get {
 				if(disposed) throw new ObjectDisposedException("Tile");
@@ -166,7 +144,6 @@ namespace Aesir {
 		}
 		public int Index {
 			get { return index; }
-			internal set { index = value; }
 		}
 		internal int Refcount {
 			get { return refcount; }
@@ -183,13 +160,7 @@ namespace Aesir {
 		public TileType TileType {
 			get { return tileType; }
 		}
-		private int id;
-		private static int nextId = 0;
-		public override string ToString() {
-			return string.Format("Tile(Index = {0}, ID = {1})", index, id);
-		}
 	}
-	class TileManagerException : Exception { } // TODO: Use this TileManagerException? Or not?
 	interface ITileProvider {
 		TileHandle GetTile(int index, int priority);
 		TileType TileType { get; }
@@ -219,25 +190,6 @@ namespace Aesir {
 		#endregion
 		private TileType tileType;
 		public TileManager(TileType tileType, string sourceTag, int sourceCount) {
-			loadingTiles.ItemsAdded += delegate(object sender, ItemCountEventArgs<KeyValuePair<int, LoadingTile>> args) {
-				LogUtil.Log(string.Format("{0} -> Added to \"loadingTiles\"", args.Item.Value.tile));
-			};
-			loadingTiles.ItemsRemoved += delegate(object sender, ItemCountEventArgs<KeyValuePair<int, LoadingTile>> args) {
-				LogUtil.Log(string.Format("{0} -> Removed from \"loadingTiles\"", args.Item.Value.tile));
-			};
-			releasedTiles.ItemsAdded += delegate(object sender, ItemCountEventArgs<int> args) {
-				LogUtil.Log(string.Format("Tile(Index = {0}) -> Added to \"releasedTiles\"", args.Item));
-			};
-			releasedTiles.ItemsRemoved += delegate(object sender, ItemCountEventArgs<int> args) {
-				LogUtil.Log(string.Format("Tile(Index = {0}) -> Removed from \"releasedTiles\"", args.Item));
-			};
-			tiles.ItemsAdded += delegate(object sender, ItemCountEventArgs<KeyValuePair<int, Tile>> args) {
-				LogUtil.Log(string.Format("{0} -> Added to \"tiles\"", args.Item.Value));
-			};
-			tiles.ItemsRemoved += delegate(object sender, ItemCountEventArgs<KeyValuePair<int, Tile>> args) {
-				LogUtil.Log(string.Format("{0} -> Removed from \"tiles\"", args.Item.Value));
-			};
-
 			ReleaseTimerTick += delegate(object sender, EventArgs args) { ReleaseTiles(); };
 			this.tileType = tileType;
 
@@ -259,14 +211,13 @@ namespace Aesir {
 				new GraphicLoader.SourceProvider(sourceCount, Path.Combine(dataPath, sourceTag));
 			graphicLoader = new GraphicLoader(paletteCollection, paletteTable, sourceProvider);
 
-			blankTile = new Tile(tileType);
+			BlankTile = new Tile(tileType, 0);
 			// Use a clone because the Create method transfers ownership
-			blankTile.Create((Image)BlankImage.Clone());
-			blankTile.Index = 0;
-			tiles.Add(0, blankTile);
+			BlankTile.Create((Image)BlankImage.Clone());
+			tiles.Add(0, BlankTile);
 			// Artificially increment the refcount for blankTile so it is never disposed until it
 			// is garbage collected.
-			++blankTile.Refcount;
+			++BlankTile.Refcount;
 		}
 		public int TileCount {
 			get { return graphicLoader.GraphicCount; }
@@ -276,99 +227,53 @@ namespace Aesir {
 				string message = "The specified index cannot be less than 0.";
 				throw new ArgumentException(message, "index");
 			}
-			LogUtil.Log(string.Format("Tile(Index = {0}) -> GetTile()", index));
 			LoadingTile loadingTile = null;
 			// Check to see if the tile is already loaded or is currently loading
-			lock(syncRoot) {
+			lock(SyncRoot) {
 				if(tiles.Contains(index)) {
-					LogUtil.Log(string.Format("Tile(Index = {0}) -> \tUsing previously loaded tile", index));
-					if(releasedTiles.Contains(index)) {
-						LogUtil.Log(string.Format("Tile(Index = {0}) -> \t\tRemoving from disposal queue", index));
+					if(releasedTiles.Contains(index))
 						releasedTiles.Remove(index);
-					}
 					return new TileHandle(tiles[index]);
 				} else if(loadingTiles.Contains(index)) {
 					loadingTile = loadingTiles[index];
-					LogUtil.Log(string.Format("Tile(Index = {0}) -> \tUsing loading tile", index));
 					taskThread.PromoteTask(loadingTile.taskHandle, priority);
 					return new TileHandle(loadingTile.tile);
 				}
 			}
-			// The tile is not loaded, load it!
-			Tile tile = new Tile(tileType);
-			tile.Index = index;
-			// The default release handler, tile_Release_premature, removes the tile from the list
-			// of tiles that are in the process of loading (loadingTiles). This handler will be
-			// invoked in a case where a tile is disposed before it is fully loaded. When the tile
-			// is fully loaded, tile_Release_premature is replaced with tile_Release_full.
-			EventHandler tile_Release_premature = delegate(object sender, EventArgs args) {
-				Tile senderTile = (Tile)sender;
-				Debug.Assert(!senderTile.Loaded, "If the tile has been loaded, this EventHandler" +
-					" should have been uninstalled.");
-				LogUtil.Log(string.Format("{0} -> Prematurely released", senderTile));
-				lock(syncRoot) {
-					if(loadingTiles.Contains(senderTile.Index)) {
-						LoadingTile senderLoadingTile = loadingTiles[senderTile.Index];
-						taskThread.CancelTask(senderLoadingTile.taskHandle);
-						loadingTiles.Remove(senderTile.Index);
-					} else {
-						//Debug.Fail("What happen?");
-						// TEMP: Debug.Fail("What happen?")
-					}
-				}
-			};
-			EventHandler tile_Release_full = delegate(object sender, EventArgs args) {
-				Tile senderTile = (Tile)sender;
-				Debug.Assert(senderTile.Loaded, "This EventHandler should only have been installed" +
-					" after the tile has been loaded.");
-				LogUtil.Log(string.Format("{0} -> Fully released", senderTile));
-				lock(syncRoot) releasedTiles.Add(senderTile.Index);
-			};
+			// Load the tile
+			Tile tile = new Tile(tileType, index);
 			EventHandler tile_Release = delegate(object sender, EventArgs args) {
 				Tile senderTile = (Tile)sender;
-				LogUtil.Log(string.Format("{0} -> [tile_Release] Loaded = {1}", senderTile, senderTile.Loaded));
 				if(senderTile.Loaded) {
-					LogUtil.Log(string.Format("{0} -> [tile_Release] Fully released", senderTile));
-					lock(syncRoot) releasedTiles.Add(senderTile.Index);
+					// Add the tile to the disposal queue
+					lock(SyncRoot) releasedTiles.Add(senderTile.Index);
 				} else {
-					LogUtil.Log(string.Format("{0} -> [tile_Release] Prematurely released", senderTile));
-					lock(syncRoot) {
-						if(loadingTiles.Contains(senderTile.Index)) {
+					// The tile was released prematurely
+					lock(SyncRoot) {
+						try {
 							LoadingTile senderLoadingTile = loadingTiles[senderTile.Index];
 							taskThread.CancelTask(senderLoadingTile.taskHandle);
 							loadingTiles.Remove(senderTile.Index);
-						} else {
-							//Debug.Fail("What happen?");
-							// TEMP: Debug.Fail("What happen?")
+						} catch(NoSuchItemException) {
+							Debug.Fail("Prematurely released tile could not be found in the " +
+								"loadingTiles collection.");
 						}
 					}
 				}
 			};
 			EventHandler tile_Load = delegate(object sender, EventArgs args) {
 				Tile senderTile = (Tile)sender;
-				LogUtil.Log(string.Format("{0} -> [tile_Load] Loaded", senderTile));
-				LogUtil.Log(string.Format("{0} -> [tile_Load] Loaded = {1}", senderTile, senderTile.Loaded));
-				lock(syncRoot) {
-					LogUtil.Log(string.Format("{0} -> [tile_Load] Removing from \"loadingTiles\"", senderTile));
+				lock(SyncRoot) {
 					loadingTiles.Remove(senderTile.Index);
-					LogUtil.Log(string.Format("{0} -> [tile_Load] Checking \"tiles\" for membership", senderTile));
 					if(tiles.Contains(senderTile.Index)) {
-						LogUtil.Log(string.Format("{0} -> [tile_Load] \"senderTile\" is in \"tiles\"!", senderTile));
 						if(tiles[senderTile.Index].Refcount != 0) {
-							Debug.Fail(""); // TODO: THIS IS A BIG BUG SHIT
-						} else {
-							Debug.Fail("LOLWHAT?");
-							tiles[senderTile.Index].Dispose();
-						}
+							Debug.Fail("A tile has been loaded twice, but the second copy cannot be" +
+								" disposed because it is in use.");
+						} else tiles[senderTile.Index].Dispose();
 					}
-					LogUtil.Log(string.Format("{0} -> [tile_Load] Adding to \"tiles\"", senderTile));
 					tiles[senderTile.Index] = senderTile;
 				}
-				//Console.WriteLine(((EventInfo)senderTile.GetType().GetMember("RealRelease")[0]));
-				/*senderTile.Release -= tile_Release_premature;
-				senderTile.Release += tile_Release_full;*/
 			};
-			//tile.Release += tile_Release_premature;
 			tile.Release += tile_Release;
 			tile.Load += tile_Load;
 			ITaskHandle taskHandle = taskThread.AddTask(
@@ -376,13 +281,12 @@ namespace Aesir {
 				delegate(object arg) { tile.Create((Image)arg); },
 				priority);
 			loadingTile = new LoadingTile(taskHandle, tile);
-			lock(syncRoot) loadingTiles.Add(tile.Index, loadingTile);
+			lock(SyncRoot) loadingTiles.Add(tile.Index, loadingTile);
 			return new TileHandle(tile);
 		}
 		private void ReleaseTiles() {
-			lock(syncRoot) {
+			lock(SyncRoot) {
 				foreach(int index in releasedTiles) {
-					LogUtil.Log(string.Format("{0} -> [ReleaseTiles] Disposing", tiles[index]));
 					tiles[index].Dispose();
 					tiles.Remove(index);
 				}
@@ -391,14 +295,14 @@ namespace Aesir {
 		}
 		// Used to synchronize access to the various collections associated with the TileManager
 		// instance, including releasedTiles, loadingTiles, and tiles.
-		private readonly object syncRoot = new Object();
+		private readonly object SyncRoot = new Object();
 		public int LoadedTileCount {
 			get { return tiles.Count; }
 		}
 		public TileType TileType {
 			get { return tileType; }
 		}
-		private readonly Tile blankTile;
+		private readonly Tile BlankTile;
 		private GraphicLoader graphicLoader;
 		private class LoadingTile {
 			public ITaskHandle taskHandle;

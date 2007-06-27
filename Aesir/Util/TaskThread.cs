@@ -58,7 +58,7 @@ namespace Aesir.Util {
 			}
 		}
 		// Used to synchronize access to the tasks collection
-		private readonly object syncRoot = new Object();
+		private readonly object SyncRoot = new Object();
 		private IPriorityQueue<Task> tasks;
 		private BackgroundWorker thread = new BackgroundWorker();
 		public TaskThread() {
@@ -66,13 +66,24 @@ namespace Aesir.Util {
 			thread.RunWorkerCompleted += thread_RunWorkerCompleted;
 			thread.DoWork += thread_DoWork;
 		}
+		#region BackgroundWorker event handlers
+		private void thread_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs args) {
+			((Task)args.Result).TaskCompleted();
+			UpdateBackgroundWorker();
+		}
+		private void thread_DoWork(object sender, DoWorkEventArgs args) {
+			((Task)args.Argument).TaskWorker();
+			args.Result = args.Argument;
+			if(thread.CancellationPending) args.Cancel = true;
+		}
+		#endregion
 		public ITaskHandle AddTask(TaskWorker taskWorker, TaskCompleted taskCompleted) {
 			return AddTask(taskWorker, taskCompleted, 0);
 		}
 		public ITaskHandle AddTask(TaskWorker taskWorker, TaskCompleted taskCompleted, int priority) {
 			Task task = new Task(taskWorker, taskCompleted, priority);
 			IPriorityQueueHandle<Task> handle = null;
-			lock(syncRoot) tasks.Add(ref handle, task);
+			lock(SyncRoot) tasks.Add(ref handle, task);
 			UpdateBackgroundWorker();
 			return new TaskHandle(task, handle);
 		}
@@ -80,7 +91,7 @@ namespace Aesir.Util {
 		public void PromoteTask(ITaskHandle taskHandle, int priority) {
 			IPriorityQueueHandle<Task> handle = ((TaskHandle)taskHandle).handle;
 			Task task;
-			lock(syncRoot) {
+			lock(SyncRoot) {
 				if(!tasks.Find(handle, out task)) throw new InvalidTaskHandleException();
 				if(priority > task.Priority) return; // Don't allow clients to demote tasks
 				tasks.Delete(handle);
@@ -92,7 +103,7 @@ namespace Aesir.Util {
 		public void CancelTask(ITaskHandle taskHandle) {
 			IPriorityQueueHandle<Task> handle = ((TaskHandle)taskHandle).handle;
 			try {
-				lock(syncRoot) tasks.Delete(handle);
+				lock(SyncRoot) tasks.Delete(handle);
 			} catch(InvalidPriorityQueueHandleException) {
 				// Silence the error. The task might be currently executing. Calling Cancel() should
 				// handle it.
@@ -100,21 +111,10 @@ namespace Aesir.Util {
 			((TaskHandle)taskHandle).task.Cancel();
 		}
 		private void UpdateBackgroundWorker() {
-			lock(syncRoot) {
+			lock(SyncRoot) {
 				if(!thread.IsBusy && tasks.Count > 0)
 					thread.RunWorkerAsync(tasks.DeleteMin());
 			}
-		}
-		private void thread_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs args) {
-			Task task = (Task)args.Result;
-			task.TaskCompleted();
-			UpdateBackgroundWorker();
-		}
-		private void thread_DoWork(object sender, DoWorkEventArgs args) {
-			Task task = (Task)args.Argument;
-			task.TaskWorker();
-			args.Result = task;
-			if(thread.CancellationPending) args.Cancel = true;
 		}
 	}
 }
