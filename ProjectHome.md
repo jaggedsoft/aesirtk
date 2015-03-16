@@ -1,0 +1,1 @@
+Aesir will be a map editor for [NexusTK](http://www.nexustk.com/), written in C#.
